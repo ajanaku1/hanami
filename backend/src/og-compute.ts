@@ -17,8 +17,23 @@ type ChatResponse = {
   x_0g_trace: Trace;
 };
 
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 5): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try { return await fetch(url, init); }
+    catch (e) {
+      lastErr = e;
+      const code = (e as { cause?: { code?: string } })?.cause?.code;
+      const retryable = code === "ECONNRESET" || code === "ETIMEDOUT" || code === "ENOTFOUND" || code === "ECONNREFUSED";
+      if (!retryable) throw e;
+      await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, i))); // 2s, 4s, 8s, 16s, 32s
+    }
+  }
+  throw lastErr;
+}
+
 export async function chat(messages: ChatTurn[]): Promise<{ content: string; trace: Trace }> {
-  const res = await fetch(`${OG_ROUTER_BASE}/chat/completions`, {
+  const res = await fetchWithRetry(`${OG_ROUTER_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OG_ROUTER_KEY}` },
     body: JSON.stringify({ model: OG_ROUTER_MODEL, messages, verify_tee: true, max_tokens: 280 }),

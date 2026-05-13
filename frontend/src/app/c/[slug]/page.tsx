@@ -2,19 +2,21 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { applicant } from "@/copy";
 import { api, type Campaign, type TurnResult } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { Portrait, pickVariant } from "@/components/Portrait";
 import { Seal } from "@/components/Seal";
+import { ConnectButton } from "@/components/ConnectButton";
 
 type Params = { slug: string };
 type Msg = { role: "applicant" | "bouncer"; content: string };
 
 export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const { slug } = use(params);
+  const { address, isConnected } = useAccount();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [wallet, setWallet] = useState("");
   const [started, setStarted] = useState(false);
   const [history, setHistory] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -22,6 +24,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const [decision, setDecision] = useState<TurnResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const wallet = address ?? "";
 
   useEffect(() => {
     api.getCampaign(slug).then(setCampaign).catch((e) => setErr(String(e)));
@@ -32,14 +35,14 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   }, [history.length]);
 
   async function send() {
-    if (!input.trim() || busy) return;
+    if (!input.trim() || busy || !address) return;
     const msg = input.trim();
     setInput("");
     setHistory((h) => [...h, { role: "applicant", content: msg }]);
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.sendTurn(slug, wallet, msg);
+      const r = await api.sendTurn(slug, address, msg);
       setHistory((h) => [...h, { role: "bouncer", content: r.reply }]);
       if (r.decision) setDecision(r);
     } catch (e) {
@@ -55,6 +58,36 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const tokenId = campaign.bouncer_token_id;
   const variant = pickVariant(tokenId);
   const bouncerName = campaign.name.split(" ")[0] ?? `№${tokenId}`;
+  const isOwner = isConnected && address && address.toLowerCase() === campaign.owner_address.toLowerCase();
+  const blockedPrivate = campaign.visibility === "private" && !isOwner;
+
+  if (blockedPrivate) {
+    return (
+      <Shell>
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-12 items-center">
+          <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-[var(--hanami-paper-soft)]">
+            <Portrait variant={variant} className="w-full h-full" />
+          </div>
+          <div className="text-left">
+            <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-2">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-stamp)] mr-2 align-middle" />
+              private · invite only
+            </div>
+            <h1 className="font-serif text-[40px] leading-tight mb-3">{campaign.name}</h1>
+            <p className="text-[var(--hanami-ink-soft)] mb-2 max-w-[44ch]">
+              This bouncer is private. The owner hasn&apos;t opened it for public applications yet.
+            </p>
+            <p className="text-[var(--hanami-ink-soft)] text-[13px] max-w-[44ch]">
+              If you&apos;ve been invited, the owner will share access directly. Otherwise, browse other bouncers in the gallery.
+            </p>
+            <div className="mt-8">
+              <Link href="/gallery" className="text-[13px] tracking-[0.08em] uppercase">← back to gallery</Link>
+            </div>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
 
   if (!started) {
     return (
@@ -70,18 +103,21 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
             </div>
             <h1 className="font-serif text-[40px] leading-tight mb-3">{campaign.name}</h1>
             <p className="text-[var(--hanami-ink-soft)] mb-8 max-w-[44ch]">{applicant.preConnect.body}</p>
-            <input
-              className="w-full bg-transparent border border-[var(--hanami-rule)] px-3 py-2.5 font-mono mb-3 focus:outline-none focus:border-[var(--hanami-ink)]"
-              placeholder="0x… your wallet address"
-              value={wallet} onChange={(e) => setWallet(e.target.value)}
-            />
-            <button
-              disabled={!/^0x[a-fA-F0-9]{40}$/.test(wallet)}
-              onClick={() => setStarted(true)}
-              className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-40 transition-colors"
-            >
-              Begin
-            </button>
+            {isConnected && address ? (
+              <>
+                <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2">connected</div>
+                <div className="font-mono text-sm mb-5">{address}</div>
+                <button
+                  onClick={() => setStarted(true)}
+                  className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors"
+                >
+                  Begin
+                </button>
+                <span className="ml-4"><ConnectButton compact /></span>
+              </>
+            ) : (
+              <ConnectButton />
+            )}
           </div>
         </div>
       </Shell>

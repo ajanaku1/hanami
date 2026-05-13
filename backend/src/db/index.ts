@@ -9,3 +9,8 @@ const DB_PATH = process.env.HANAMI_DB ?? join(here, "..", "..", "hanami.db");
 
 export const db = new Database(DB_PATH);
 db.exec(readFileSync(SCHEMA_PATH, "utf8"));
+
+// idempotent column adds for older DBs
+const cols = db.prepare("PRAGMA table_info(campaigns)").all() as Array<{ name: string }>;
+const has = (name: string) => cols.some((c) => c.name === name);
+if (!has("visibility")) db.exec("ALTER TABLE campaigns ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'");

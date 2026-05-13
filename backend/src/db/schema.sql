@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   owner_address     TEXT NOT NULL,        -- project wallet
   created_at        INTEGER NOT NULL,     -- unix seconds
   finalized_at      INTEGER,              -- set when Merkle root published
-  merkle_root       TEXT                  -- 0x... hex
+  merkle_root       TEXT,                 -- 0x... hex
+  visibility        TEXT NOT NULL DEFAULT 'private'  -- 'public' | 'private'
 );
 
 CREATE INDEX IF NOT EXISTS idx_campaigns_owner ON campaigns(owner_address);

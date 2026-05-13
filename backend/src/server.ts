@@ -6,7 +6,8 @@ import { z } from "zod";
 import { db } from "./db/index.js";
 import { uploadText, readByRoot } from "./og-storage.js";
 import { bouncerTurn } from "./bouncer.js";
-import { mintBouncer, authorizeBackend, createCampaign, recordDecision, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { mintBouncer, authorizeBackend, createCampaign, recordDecision, finalizeMerkleRoot, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { buildExport } from "./merkle.js";
 import type { ChatTurn } from "./og-compute.js";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
@@ -75,11 +76,60 @@ app.post("/api/campaigns", async (c) => {
   });
 });
 
+const campaignWithCountsSql = `
+  SELECT c.*,
+    (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision = 'approved') AS approved_count,
+    (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision = 'rejected') AS rejected_count,
+    (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision IS NULL) AS pending_count
+  FROM campaigns c
+`;
+
 app.get("/api/campaigns/:slug", (c) => {
   const slug = c.req.param("slug");
-  const row = db.prepare("SELECT * FROM campaigns WHERE slug = ?").get(slug);
+  const row = db.prepare(`${campaignWithCountsSql} WHERE c.slug = ?`).get(slug);
   if (!row) return c.json({ error: "not found" }, 404);
   return c.json(row);
+});
+
+app.get("/api/campaigns", (c) => {
+  const owner = c.req.query("owner");
+  if (owner) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return c.json({ error: "invalid owner address" }, 400);
+    const rows = db.prepare(`${campaignWithCountsSql} WHERE c.owner_address = ? ORDER BY c.created_at DESC`).all(owner.toLowerCase());
+    return c.json({ campaigns: rows });
+  }
+  // public listing — every bouncer is visible; the apply/chat capability is gated per-card by visibility
+  const rows = db.prepare(`${campaignWithCountsSql} ORDER BY c.created_at DESC`).all();
+  return c.json({ campaigns: rows });
+});
+
+const visibilityBody = z.object({
+  visibility: z.enum(["public", "private"]),
+  signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+  caller: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  nonce: z.number().int(),
+});
+
+app.post("/api/campaigns/:slug/visibility", async (c) => {
+  const slug = c.req.param("slug");
+  const parsed = visibilityBody.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
+  const { visibility, signature, caller, nonce } = parsed.data;
+
+  const row = db.prepare("SELECT owner_address FROM campaigns WHERE slug = ?").get(slug) as { owner_address: string } | undefined;
+  if (!row) return c.json({ error: "not found" }, 404);
+  if (row.owner_address.toLowerCase() !== caller.toLowerCase()) return c.json({ error: "not owner" }, 403);
+
+  // accept nonces within 10 minutes
+  if (Math.abs(Date.now() - nonce) > 10 * 60 * 1000) return c.json({ error: "stale nonce" }, 400);
+
+  const { verifyMessage } = await import("viem");
+  const message = `Hanami: set ${slug} visibility to ${visibility} at ${nonce}`;
+  const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: signature as `0x${string}` });
+  if (!ok) return c.json({ error: "signature did not verify" }, 401);
+
+  db.prepare("UPDATE campaigns SET visibility = ? WHERE slug = ?").run(visibility, slug);
+  return c.json({ slug, visibility });
 });
 
 const turnBody = z.object({
@@ -164,6 +214,59 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     attestationHash: recorded.attestationHash,
     reasoningRoot: reasoningUp.rootHash,
   });
+});
+
+app.get("/api/campaigns/:slug/export", (c) => {
+  const slug = c.req.param("slug");
+  const campaign = db.prepare("SELECT slug, merkle_root, finalized_at FROM campaigns WHERE slug = ?").get(slug) as { slug: string; merkle_root: string | null; finalized_at: number | null } | undefined;
+  if (!campaign) return c.json({ error: "not found" }, 404);
+
+  const approved = (db.prepare("SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC").all(slug) as Array<{ wallet_address: string }>)
+    .map((r) => r.wallet_address as `0x${string}`);
+  const exported = buildExport(approved);
+  return c.json({
+    slug,
+    finalized: campaign.finalized_at !== null,
+    onChainRoot: campaign.merkle_root,
+    ...exported,
+  });
+});
+
+const finalizeReq = z.object({
+  signature: z.string().regex(/^0x[a-fA-F0-9]+$/),
+  caller: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  nonce: z.number().int(),
+});
+
+app.post("/api/campaigns/:slug/finalize", async (c) => {
+  const slug = c.req.param("slug");
+  const parsed = finalizeReq.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
+  const { signature, caller, nonce } = parsed.data;
+
+  const row = db.prepare("SELECT owner_address, campaign_address, finalized_at FROM campaigns WHERE slug = ?")
+    .get(slug) as { owner_address: string; campaign_address: string; finalized_at: number | null } | undefined;
+  if (!row) return c.json({ error: "not found" }, 404);
+  if (row.finalized_at !== null) return c.json({ error: "already finalized" }, 409);
+  if (row.owner_address.toLowerCase() !== caller.toLowerCase()) return c.json({ error: "not owner" }, 403);
+  if (Math.abs(Date.now() - nonce) > 10 * 60 * 1000) return c.json({ error: "stale nonce" }, 400);
+
+  const { verifyMessage } = await import("viem");
+  const message = `Hanami: finalize ${slug} at ${nonce}`;
+  const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: signature as `0x${string}` });
+  if (!ok) return c.json({ error: "signature did not verify" }, 401);
+
+  const approved = (db.prepare("SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC").all(slug) as Array<{ wallet_address: string }>)
+    .map((r) => r.wallet_address as `0x${string}`);
+  if (approved.length === 0) return c.json({ error: "no approved applicants yet" }, 400);
+
+  const { root } = buildExport(approved);
+  const txHash = await finalizeMerkleRoot(row.campaign_address as `0x${string}`, root);
+
+  db.prepare("UPDATE campaigns SET merkle_root = ?, finalized_at = ? WHERE slug = ?")
+    .run(root, Math.floor(Date.now() / 1000), slug);
+
+  return c.json({ slug, root, txHash });
 });
 
 app.get("/api/campaigns/:slug/admin", (c) => {

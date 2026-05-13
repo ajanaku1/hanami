@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { create, personaPresets } from "@/copy";
 import { api, type CreateCampaignResult } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { Seal } from "@/components/Seal";
+import { ConnectButton } from "@/components/ConnectButton";
+import { VisibilityToggle } from "@/components/VisibilityToggle";
 
 const CHAINS = [
   { value: "ethereum", label: "Ethereum" },
@@ -23,7 +26,7 @@ export default function CreatePage() {
   const [wlSize, setWlSize] = useState(100);
   const [persona, setPersona] = useState("");
   const [lorebook, setLorebook] = useState("");
-  const [ownerAddress, setOwnerAddress] = useState("");
+  const { address, isConnected } = useAccount();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -37,10 +40,11 @@ export default function CreatePage() {
   }, [slug, name, persona]);
 
   async function submit() {
+    if (!address) { setErr("connect a wallet first"); return; }
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.createCampaign({ slug, name, targetChain, wlSizeCap: wlSize, persona, lorebook, ownerAddress });
+      const r = await api.createCampaign({ slug, name, targetChain, wlSizeCap: wlSize, persona, lorebook, ownerAddress: address });
       setResult(r);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -86,6 +90,15 @@ export default function CreatePage() {
 
           <div>
             <BouncerCard tokenId={tokenId} name={name || `Bouncer №${tokenId}`} subtitle="just minted" sealRoot={result.personaRoot} />
+            {address && (
+              <div className="mt-6 border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-4">
+                <div className="text-[10px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-2">visibility</div>
+                <VisibilityToggle slug={result.slug} ownerAddress={address} current="private" />
+                <p className="text-[11px] text-[var(--hanami-ink-soft)] mt-3 leading-relaxed">
+                  Private by default. Listing makes the bouncer visible in the public gallery and exposes the apply link.
+                </p>
+              </div>
+            )}
           </div>
         </main>
       </>
@@ -138,15 +151,21 @@ export default function CreatePage() {
               <textarea className={`${inputCls} min-h-[120px]`} value={lorebook} onChange={(e) => setLorebook(e.target.value)} />
             </Field>
 
-            <Field label="Your wallet address (campaign owner)">
-              <input className={`${inputCls} font-mono`} placeholder="0x…" value={ownerAddress} onChange={(e) => setOwnerAddress(e.target.value)} />
+            <Field label="Campaign owner">
+              {isConnected && address ? (
+                <div className="border border-[var(--hanami-rule)] px-3 py-2 font-mono text-sm">{address}</div>
+              ) : (
+                <div className="border border-[var(--hanami-rule)] px-3 py-2">
+                  <ConnectButton />
+                </div>
+              )}
             </Field>
 
             {err && <p className="text-[var(--hanami-stamp)] text-sm font-mono">{err}</p>}
 
-            <button onClick={submit} disabled={busy}
-              className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-50 transition-colors">
-              {busy ? create.submitting : create.submit}
+            <button onClick={submit} disabled={busy || !isConnected}
+              className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-40 transition-colors">
+              {busy ? create.submitting : isConnected ? create.submit : "Connect to mint"}
             </button>
           </div>
         </div>
@@ -174,11 +193,17 @@ export default function CreatePage() {
 
 function Header() {
   return (
-    <header className="relative z-10 flex justify-between items-center px-10 py-5">
-      <Link href="/" className="flex items-baseline gap-3 border-none" style={{ borderBottom: "none" }}>
-        <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-        <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-      </Link>
+    <header className="relative z-50 flex justify-between items-start px-10 py-5">
+      <div className="flex flex-col items-start">
+        <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
+          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
+          <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
+        </Link>
+        <Link href="/" className="mt-1 text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>
+          ← back
+        </Link>
+      </div>
+      <ConnectButton compact />
     </header>
   );
 }

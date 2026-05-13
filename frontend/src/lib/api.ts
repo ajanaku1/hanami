@@ -45,6 +45,18 @@ export type Campaign = {
   owner_address: string;
   finalized_at: number | null;
   merkle_root: string | null;
+  visibility: "public" | "private";
+  created_at: number;
+  approved_count: number;
+  rejected_count: number;
+  pending_count: number;
+};
+
+export type SetVisibilityBody = {
+  visibility: "public" | "private";
+  signature: string;
+  caller: string;
+  nonce: number;
 };
 
 export type TurnResult = {
@@ -67,10 +79,37 @@ export type AdminPayload = {
   counts: { approved: number; rejected: number; pending: number };
 };
 
+export type MerkleExportResult = {
+  slug: string;
+  finalized: boolean;
+  onChainRoot: string | null;
+  root: string;
+  leafCount: number;
+  leaves: Array<{ address: string; leaf: string; proof: string[] }>;
+  solidityHelper: string;
+};
+
+export type FinalizeBody = { signature: string; caller: string; nonce: number };
+
 export const api = {
   createCampaign: (body: CreateCampaignBody) =>
     call<CreateCampaignResult>("/api/campaigns", { method: "POST", body: JSON.stringify(body) }),
   getCampaign: (slug: string) => call<Campaign>(`/api/campaigns/${slug}`),
+  listCampaignsByOwner: (owner: string) =>
+    call<{ campaigns: Campaign[] }>(`/api/campaigns?owner=${owner}`),
+  listAllCampaigns: () =>
+    call<{ campaigns: Campaign[] }>(`/api/campaigns`),
+  setVisibility: (slug: string, body: SetVisibilityBody) =>
+    call<{ slug: string; visibility: "public" | "private" }>(`/api/campaigns/${slug}/visibility`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  exportMerkle: (slug: string) => call<MerkleExportResult>(`/api/campaigns/${slug}/export`),
+  finalizeMerkle: (slug: string, body: FinalizeBody) =>
+    call<{ slug: string; root: string; txHash: string }>(`/api/campaigns/${slug}/finalize`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   sendTurn: (slug: string, walletAddress: string, message: string) =>
     call<TurnResult>(`/api/campaigns/${slug}/turns`, {
       method: "POST",

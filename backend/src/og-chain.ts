@@ -96,6 +96,18 @@ export async function createCampaign(bouncerTokenId: bigint, wlSizeCap: bigint):
   return { txHash, campaign: created.args.campaign };
 }
 
+export async function finalizeMerkleRoot(campaign: Address, root: Hex): Promise<Hex> {
+  const finalizeAbi = parseAbi(["function finalizeMerkleRoot(bytes32 root)"]);
+  const txHash = await wallet.writeContract({
+    address: campaign,
+    abi: finalizeAbi,
+    functionName: "finalizeMerkleRoot",
+    args: [root],
+  });
+  await publicClient.waitForTransactionReceipt({ hash: txHash });
+  return txHash;
+}
+
 export type RecordedDecision = { txHash: Hex; attestationHash: Hex; reasoningHash: Hex };
 
 export async function recordDecision(

@@ -6,6 +6,8 @@ import { admin } from "@/copy";
 import { api, type AdminPayload } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
+import { VisibilityToggle } from "@/components/VisibilityToggle";
+import { MerkleExport } from "@/components/MerkleExport";
 
 type Params = { slug: string };
 
@@ -31,6 +33,9 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
         <aside className="lg:sticky lg:top-12 lg:self-start">
           <BouncerCard tokenId={campaign.bouncer_token_id} name={campaign.name.split(" ")[0]} subtitle={`token №${campaign.bouncer_token_id}`} sealRoot={campaign.persona_uri} />
+          <div className="mt-5">
+            <VisibilityToggle slug={campaign.slug} ownerAddress={campaign.owner_address} current={campaign.visibility} />
+          </div>
           <dl className="mt-6 text-xs space-y-1.5 font-mono">
             <Row k="campaign" v={campaign.campaign_address} kind="address" />
             <Row k="persona" v={campaign.persona_uri} />
@@ -92,9 +97,12 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
 
           <h2 className="font-serif text-[24px] mb-2">{admin.exportButton}</h2>
           <p className="text-[var(--hanami-ink-soft)] text-sm mb-5 max-w-[58ch]">{admin.exportedBody}</p>
-          <button disabled className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase opacity-50 cursor-not-allowed">
-            {admin.exportButton} — Day 3
-          </button>
+          <MerkleExport
+            slug={campaign.slug}
+            ownerAddress={campaign.owner_address}
+            finalized={campaign.finalized_at !== null}
+            alreadyOnChain={campaign.merkle_root}
+          />
         </div>
       </div>
     </Shell>
