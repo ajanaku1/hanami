@@ -9,33 +9,33 @@ export default function Home() {
     <>
       <PetalsCanvas />
 
-      <header className="relative z-50 flex justify-between items-center px-10 py-5">
+      <header className="relative z-50 flex justify-between items-center px-6 sm:px-10 py-5 gap-4">
         <div className="flex items-baseline gap-3">
           <span className="font-serif text-[24px] tracking-wider">Hanami</span>
           <span className="text-[18px] text-[var(--hanami-ink-soft)]" style={{ fontFamily: "var(--font-serif-loaded)" }}>花見</span>
         </div>
-        <nav className="flex items-center gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
+        <nav className="flex items-center gap-4 sm:gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
           <Link href="/create" className="border-none">Mint</Link>
           <Link href="/gallery" className="border-none">Gallery</Link>
-          <a className="border-none" href="https://chainscan-galileo.0g.ai/address/0xA4D38fcB1C8aD17920bEF7AE97E2b8D5E72F68b7" target="_blank" rel="noopener">Contract</a>
+          <a className="border-none hidden sm:inline" href="https://chainscan-galileo.0g.ai/address/0xA4D38fcB1C8aD17920bEF7AE97E2b8D5E72F68b7" target="_blank" rel="noopener">Contract</a>
         </nav>
       </header>
 
       {/* HERO */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-10 py-10 grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-20 items-center">
+      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10 grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center">
         <div>
-          <h1 className="font-serif font-medium leading-[0.95] tracking-tight" style={{ fontSize: 80, marginBottom: 18 }}>
+          <h1 className="font-serif font-medium leading-[0.95] tracking-tight text-[44px] sm:text-[60px] lg:text-[80px] mb-4 lg:mb-[18px]">
             An AI bouncer <span className="italic text-[var(--hanami-sakura)]">for your whitelist.</span>
           </h1>
-          <p className="font-serif italic text-[26px] text-[var(--hanami-ink-soft)] mb-7 max-w-[22ch]">
+          <p className="font-serif italic text-[20px] sm:text-[26px] text-[var(--hanami-ink-soft)] mb-7 max-w-[22ch]">
             Every bouncer iNFT mints its own seal.
           </p>
-          <p className="text-[16px] max-w-[44ch] text-[var(--hanami-ink)] mb-9">
+          <p className="text-[15px] sm:text-[16px] max-w-[44ch] text-[var(--hanami-ink)] mb-9">
             Your project sets the criteria. The bouncer holds a private conversation
             with each applicant inside a TEE. The bouncer itself is an ERC-7857 iNFT
             with a generated seal.
           </p>
-          <div className="flex gap-5 items-center">
+          <div className="flex flex-wrap gap-5 items-center">
             <Link href="/create" className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors" style={{ borderBottom: "none" }}>
               Mint a bouncer
             </Link>
@@ -57,13 +57,13 @@ export default function Home() {
       <InkDivider />
 
       {/* HOW IT WORKS */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-10 py-10">
+      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
         <div className="mb-12 max-w-[60ch]">
           <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
             How it works
           </div>
-          <h2 className="font-serif text-[44px] leading-tight mb-3">From persona to Merkle root in four moves.</h2>
+          <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight mb-3">From persona to Merkle root in four moves.</h2>
           <p className="text-[var(--hanami-ink-soft)]">
             Hanami runs the first pass on your whitelist. Your team reviews the borderline cases by hand,
             then drops the exported root into your existing mint contract on any EVM chain.
@@ -97,14 +97,14 @@ export default function Home() {
       <InkDivider />
 
       {/* FEATURED BOUNCERS */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-10 py-10">
+      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
         <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
           <div>
             <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
               Featured bouncers
             </div>
-            <h2 className="font-serif text-[44px] leading-tight">Recent mints.</h2>
+            <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight">Recent mints.</h2>
           </div>
           <Link href="/gallery" className="text-[13px] tracking-[0.08em] uppercase">See the full gallery →</Link>
         </div>
@@ -114,13 +114,13 @@ export default function Home() {
       <InkDivider />
 
       {/* BUILT ON 0G */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-10 py-10">
+      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
         <div className="mb-12 max-w-[60ch]">
           <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
             Why Hanami is on 0G
           </div>
-          <h2 className="font-serif text-[44px] leading-tight mb-3">Four primitives, one tool.</h2>
+          <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight mb-3">Four primitives, one tool.</h2>
           <p className="text-[var(--hanami-ink-soft)]">
             The bouncer&apos;s reasoning is private but verifiable. The persona is durable. The iNFT is
             tradable. The Merkle root is chain-agnostic. Each piece sits on the part of 0G that fits.

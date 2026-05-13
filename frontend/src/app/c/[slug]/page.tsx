@@ -9,6 +9,7 @@ import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { Portrait, pickVariant } from "@/components/Portrait";
 import { Seal } from "@/components/Seal";
 import { ConnectButton } from "@/components/ConnectButton";
+import { friendlyError } from "@/lib/errors";
 
 type Params = { slug: string };
 type Msg = { role: "applicant" | "bouncer"; content: string };
@@ -27,7 +28,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const wallet = address ?? "";
 
   useEffect(() => {
-    api.getCampaign(slug).then(setCampaign).catch((e) => setErr(String(e)));
+    api.getCampaign(slug).then(setCampaign).catch((e) => setErr(friendlyError(e)));
   }, [slug]);
 
   useEffect(() => {
@@ -46,14 +47,26 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
       setHistory((h) => [...h, { role: "bouncer", content: r.reply }]);
       if (r.decision) setDecision(r);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(friendlyError(e));
     } finally {
       setBusy(false);
     }
   }
 
-  if (err && !campaign) return <Shell><p className="font-mono text-sm">{err}</p></Shell>;
-  if (!campaign) return <Shell><p className="text-[var(--hanami-ink-soft)]">…</p></Shell>;
+  if (err && !campaign) return <Shell><p className="text-sm text-[var(--hanami-stamp)]">{err}</p></Shell>;
+  if (!campaign) return (
+    <Shell>
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-12 items-center max-w-3xl">
+        <div className="aspect-[0.72/1] bg-[var(--hanami-paper-soft)] border border-[var(--hanami-rule)] animate-pulse" />
+        <div className="space-y-4">
+          <div className="h-3 w-32 bg-[var(--hanami-rule)]/40 animate-pulse" />
+          <div className="h-10 w-72 bg-[var(--hanami-rule)]/40 animate-pulse" />
+          <div className="h-4 w-80 bg-[var(--hanami-rule)]/40 animate-pulse" />
+          <div className="h-4 w-64 bg-[var(--hanami-rule)]/40 animate-pulse" />
+        </div>
+      </div>
+    </Shell>
+  );
 
   const tokenId = campaign.bouncer_token_id;
   const variant = pickVariant(tokenId);
@@ -186,8 +199,17 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
             {history.map((m, i) => (
               <Turn key={i} role={m.role} content={m.content} variant={variant} />
             ))}
-            {busy && <div className="text-[var(--hanami-ink-soft)] pl-12">{applicant.chat.waiting}</div>}
-            {err && <div className="text-sm text-[var(--hanami-stamp)] font-mono">{err}</div>}
+            {busy && (
+              <div className="text-[var(--hanami-ink-soft)] flex items-center gap-2 pl-0.5">
+                <span className="inline-flex gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--hanami-ink-soft)] animate-pulse" style={{ animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--hanami-ink-soft)] animate-pulse" style={{ animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--hanami-ink-soft)] animate-pulse" style={{ animationDelay: "300ms" }} />
+                </span>
+                <span className="text-[11px] tracking-[0.16em] uppercase">bouncer is thinking</span>
+              </div>
+            )}
+            {err && <div className="text-sm text-[var(--hanami-stamp)]">{err}</div>}
           </div>
 
           <div className="mt-4 pt-3 border-t border-[var(--hanami-rule)] flex gap-2">

@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { api, type Campaign } from "@/lib/api";
 import { MarketCard } from "./MarketCard";
+import { MarketGridSkeleton } from "./Skeleton";
 
 export function FeaturedBouncers() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
 
   useEffect(() => {
-    api.listAllCampaigns().then((r) => setCampaigns(r.campaigns.slice(0, 3))).catch(() => {});
+    api.listAllCampaigns().then((r) => setCampaigns(r.campaigns.slice(0, 3))).catch(() => setCampaigns([]));
   }, []);
 
+  if (campaigns === null) return <MarketGridSkeleton count={3} />;
   if (campaigns.length === 0) return null;
 
   return (

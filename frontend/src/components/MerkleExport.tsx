@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { api, type MerkleExportResult } from "@/lib/api";
+import { friendlyError } from "@/lib/errors";
 
 type Props = { slug: string; ownerAddress: string; finalized: boolean; alreadyOnChain: string | null };
 
@@ -20,7 +21,7 @@ export function MerkleExport({ slug, ownerAddress, finalized, alreadyOnChain }: 
   async function loadExport() {
     setBusy("export"); setErr(null);
     try { setData(await api.exportMerkle(slug)); }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    catch (e) { setErr(friendlyError(e)); }
     finally { setBusy(null); }
   }
 

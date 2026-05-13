@@ -6,8 +6,10 @@ import { useAccount } from "wagmi";
 import { api, type Campaign } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { MarketCard } from "@/components/MarketCard";
+import { MarketGridSkeleton } from "@/components/Skeleton";
 import { ConnectButton } from "@/components/ConnectButton";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
+import { friendlyError } from "@/lib/errors";
 
 export default function MinePage() {
   const { address, isConnected } = useAccount();
@@ -16,7 +18,7 @@ export default function MinePage() {
 
   useEffect(() => {
     if (!isConnected || !address) { setMine(null); return; }
-    api.listCampaignsByOwner(address).then((r) => setMine(r.campaigns)).catch((e) => setErr(String(e)));
+    api.listCampaignsByOwner(address).then((r) => setMine(r.campaigns)).catch((e) => setErr(friendlyError(e)));
   }, [address, isConnected]);
 
   return (
@@ -48,8 +50,8 @@ export default function MinePage() {
           </div>
         )}
 
-        {err && <p className="font-mono text-sm text-[var(--hanami-stamp)]">{err}</p>}
-        {isConnected && mine === null && !err && <p className="text-[var(--hanami-ink-soft)]">…</p>}
+        {err && <p className="text-sm text-[var(--hanami-stamp)] mb-4">{err}</p>}
+        {isConnected && mine === null && !err && <MarketGridSkeleton count={3} />}
 
         {isConnected && mine && mine.length === 0 && (
           <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-8 max-w-md">

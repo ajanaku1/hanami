@@ -8,6 +8,7 @@ import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
+import { friendlyError } from "@/lib/errors";
 
 type Params = { slug: string };
 
@@ -17,14 +18,32 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const tick = () => api.getAdmin(slug).then(setData).catch((e) => setErr(String(e)));
+    const tick = () => api.getAdmin(slug).then(setData).catch((e) => setErr(friendlyError(e)));
     tick();
     const id = setInterval(tick, 4000);
     return () => clearInterval(id);
   }, [slug]);
 
-  if (err && !data) return <Shell><p className="font-mono text-sm text-[var(--hanami-stamp)]">{err}</p></Shell>;
-  if (!data) return <Shell><p className="text-[var(--hanami-ink-soft)]">…</p></Shell>;
+  if (err && !data) return <Shell><p className="text-sm text-[var(--hanami-stamp)]">{err}</p></Shell>;
+  if (!data) return (
+    <Shell>
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
+        <div className="aspect-[0.72/1] bg-[var(--hanami-paper-soft)] border border-[var(--hanami-rule)] animate-pulse" />
+        <div className="space-y-4">
+          <div className="h-10 w-80 bg-[var(--hanami-rule)]/40 animate-pulse" />
+          <div className="h-3 w-32 bg-[var(--hanami-rule)]/40 animate-pulse" />
+          <div className="grid grid-cols-3 gap-8 mt-12 border-y border-[var(--hanami-rule)] py-8">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-12 w-16 bg-[var(--hanami-rule)]/40 animate-pulse" />
+                <div className="h-3 w-20 bg-[var(--hanami-rule)]/40 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Shell>
+  );
 
   const { campaign, applicants, counts } = data;
 

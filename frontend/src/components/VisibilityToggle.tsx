@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { api } from "@/lib/api";
+import { friendlyError } from "@/lib/errors";
 
 type Props = {
   slug: string;
@@ -33,7 +34,7 @@ export function VisibilityToggle({ slug, ownerAddress, current, onChange }: Prop
       setVis(next);
       onChange?.(next);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(friendlyError(e));
     } finally {
       setBusy(false);
     }

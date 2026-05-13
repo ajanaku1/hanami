@@ -5,14 +5,16 @@ import Link from "next/link";
 import { api, type Campaign } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { MarketCard } from "@/components/MarketCard";
+import { MarketGridSkeleton } from "@/components/Skeleton";
 import { ConnectButton } from "@/components/ConnectButton";
+import { friendlyError } from "@/lib/errors";
 
 export default function GalleryPage() {
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listAllCampaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setErr(String(e)));
+    api.listAllCampaigns().then((r) => setCampaigns(r.campaigns)).catch((e) => setErr(friendlyError(e)));
   }, []);
 
   return (
@@ -44,8 +46,8 @@ export default function GalleryPage() {
           </p>
         )}
 
-        {err && <p className="font-mono text-sm text-[var(--hanami-stamp)]">{err}</p>}
-        {!campaigns && !err && <p className="text-[var(--hanami-ink-soft)]">…</p>}
+        {err && <p className="text-sm text-[var(--hanami-stamp)] mb-4">{err}</p>}
+        {!campaigns && !err && <MarketGridSkeleton count={6} />}
 
         {campaigns && campaigns.length === 0 && (
           <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-8 max-w-md">
