@@ -39,3 +39,4 @@ coverage/
 goal.md
 prompt.md
 .claude/
+*.db

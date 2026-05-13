@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 
 const RPC = process.env.GALILEO_RPC_URL!;
 const PK = process.env.DEPLOYER_PRIVATE_KEY!;
-const INDEXER_RPC = "https://indexer-storage-testnet-turbo.0g.ai";
+const INDEXER_RPC = process.env.OG_INDEXER_RPC ?? "https://indexer-storage-testnet-standard.0g.ai";
 
 async function main() {
   const provider = new ethers.JsonRpcProvider(RPC);
