@@ -35,6 +35,7 @@ build/
 coverage/
 .nyc_output/
 
-# Private build inputs — never commit
+# Private build inputs
 goal.md
 prompt.md
+.claude/

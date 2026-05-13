@@ -1,0 +1,25 @@
+{
+  "name": "hanami-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "hello:inference": "tsx scripts/hello-inference.ts",
+    "hello:storage": "tsx scripts/hello-storage.ts"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8",
+    "dotenv": "^16.4.5",
+    "openai": "^4.68.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.7.0"
+  }
+}
