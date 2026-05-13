@@ -10,6 +10,7 @@
     "hello:storage": "tsx scripts/hello-storage.ts"
   },
   "dependencies": {
+    "@0gfoundation/0g-compute-ts-sdk": "^0.8.3",
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.9",
     "@hono/node-server": "^1.13.0",
     "@types/better-sqlite3": "^7.6.13",

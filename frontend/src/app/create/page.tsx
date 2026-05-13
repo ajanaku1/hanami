@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { create, personaPresets } from "@/copy";
 import { api, type CreateCampaignResult } from "@/lib/api";
+import { PetalsCanvas } from "@/components/PetalsCanvas";
+import { BouncerCard } from "@/components/BouncerCard";
+import { Seal } from "@/components/Seal";
 
 const CHAINS = [
   { value: "ethereum", label: "Ethereum" },
@@ -24,6 +28,14 @@ export default function CreatePage() {
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  // preview seal seeded by the slug (or persona length as a fallback) so it changes as you type
+  const previewSeed = useMemo(() => {
+    const src = slug || name || persona.slice(0, 16);
+    let h = 5381;
+    for (const ch of src) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
+    return Math.abs(h) || 3;
+  }, [slug, name, persona]);
+
   async function submit() {
     setBusy(true);
     setErr(null);
@@ -38,85 +50,136 @@ export default function CreatePage() {
   }
 
   if (result) {
-    const link = `${typeof window !== "undefined" ? window.location.origin : ""}/c/${result.slug}`;
+    const link = typeof window !== "undefined" ? `${window.location.origin}/c/${result.slug}` : `/c/${result.slug}`;
+    const tokenId = Number(result.bouncerTokenId);
     return (
-      <main className="flex-1 px-8 py-24">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="font-serif text-[var(--text-3xl)] mb-3"><span className="seal" />{create.success.title}</h1>
-          <p className="text-[var(--hanami-ink-soft)] mb-10">{create.success.body}</p>
+      <>
+        <PetalsCanvas />
+        <Header />
+        <main className="relative z-10 max-w-[1240px] mx-auto px-10 py-16 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-16 items-start">
+          <div>
+            <h1 className="font-serif text-[44px] leading-tight mb-3">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-3 align-middle" />
+              {create.success.title}
+            </h1>
+            <p className="text-[var(--hanami-ink-soft)] mb-10 max-w-[58ch]">{create.success.body}</p>
 
-          <div className="border border-[var(--hanami-rule)] p-5 bg-[var(--hanami-paper-soft)] mb-8">
-            <div className="text-xs text-[var(--hanami-ink-soft)] mb-1">applicant link</div>
-            <div className="mono text-sm break-all">{link}</div>
+            <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-5 mb-8">
+              <div className="text-xs text-[var(--hanami-ink-soft)] mb-1">applicant link</div>
+              <div className="font-mono text-sm break-all">{link}</div>
+            </div>
+
+            <dl className="text-sm space-y-1.5 font-mono text-xs">
+              <Row k="bouncer tokenId" v={result.bouncerTokenId} />
+              <Row k="mint tx" v={result.bouncerMintTx} kind="tx" />
+              <Row k="campaign" v={result.campaignAddress} kind="address" />
+              <Row k="persona on 0G Storage" v={result.personaRoot} />
+              {result.lorebookRoot && <Row k="lorebook on 0G Storage" v={result.lorebookRoot} />}
+            </dl>
+
+            <div className="mt-10">
+              <Link href={`/c/${result.slug}`} className="text-[13px] tracking-[0.08em] uppercase">Open applicant page →</Link>
+              <span className="mx-3 text-[var(--hanami-ink-soft)]">·</span>
+              <Link href={`/c/${result.slug}/admin`} className="text-[13px] tracking-[0.08em] uppercase">Open admin →</Link>
+            </div>
           </div>
 
-          <dl className="text-sm space-y-2 mono">
-            <Row k="bouncer tokenId" v={result.bouncerTokenId} />
-            <Row k="mint tx" v={result.bouncerMintTx} explorer />
-            <Row k="campaign" v={result.campaignAddress} explorer />
-            <Row k="persona on 0G Storage" v={result.personaRoot} />
-            {result.lorebookRoot && <Row k="lorebook on 0G Storage" v={result.lorebookRoot} />}
-          </dl>
-        </div>
-      </main>
+          <div>
+            <BouncerCard tokenId={tokenId} name={name || `Bouncer №${tokenId}`} subtitle="just minted" sealRoot={result.personaRoot} />
+          </div>
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="flex-1 px-8 py-16">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="font-serif text-[var(--text-3xl)] mb-3">{create.heading}</h1>
-        <p className="text-[var(--hanami-ink-soft)] mb-10 max-w-[58ch]">{create.intro}</p>
+    <>
+      <PetalsCanvas />
+      <Header />
+      <main className="relative z-10 max-w-[1240px] mx-auto px-10 py-12 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-16 items-start">
+        <div>
+          <h1 className="font-serif text-[44px] leading-tight mb-3">{create.heading}</h1>
+          <p className="text-[var(--hanami-ink-soft)] mb-10 max-w-[58ch]">{create.intro}</p>
 
-        <div className="space-y-7">
-          <Field label={create.campaignNameLabel}>
-            <input className={inputCls} placeholder={create.campaignNamePlaceholder} value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
+          <div className="space-y-7">
+            <Field label={create.campaignNameLabel}>
+              <input className={inputCls} placeholder={create.campaignNamePlaceholder} value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
 
-          <Field label="Slug (used in the applicant URL)">
-            <input className={inputCls} placeholder="sakura-society-2026" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
-          </Field>
+            <Field label="Slug (used in the applicant URL)">
+              <input className={inputCls} placeholder="sakura-society-2026" value={slug}
+                     onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
+            </Field>
 
-          <Field label={create.targetChainLabel}>
-            <select className={inputCls} value={targetChain} onChange={(e) => setTargetChain(e.target.value as typeof targetChain)}>
-              {CHAINS.map((ch) => <option key={ch.value} value={ch.value}>{ch.label}</option>)}
-            </select>
-          </Field>
+            <Field label={create.targetChainLabel}>
+              <select className={inputCls} value={targetChain} onChange={(e) => setTargetChain(e.target.value as typeof targetChain)}>
+                {CHAINS.map((ch) => <option key={ch.value} value={ch.value}>{ch.label}</option>)}
+              </select>
+            </Field>
 
-          <Field label={create.wlSizeLabel} help={create.wlSizeHelp}>
-            <input className={inputCls} type="number" min={1} value={wlSize} onChange={(e) => setWlSize(Number(e.target.value))} />
-          </Field>
+            <Field label={create.wlSizeLabel} help={create.wlSizeHelp}>
+              <input className={inputCls} type="number" min={1} value={wlSize} onChange={(e) => setWlSize(Number(e.target.value))} />
+            </Field>
 
-          <Field label={create.personaLabel} help={create.personaHelp}>
-            <div className="flex flex-wrap gap-2 mb-2 text-xs">
-              {Object.values(personaPresets).map((p) => (
-                <button key={p.label} type="button"
-                  className="px-3 py-1 border border-[var(--hanami-rule)] hover:border-[var(--hanami-ink-soft)] text-[var(--hanami-ink-soft)]"
-                  onClick={() => setPersona(p.seed)}>
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <textarea className={`${inputCls} min-h-[180px]`} placeholder={create.personaPlaceholder} value={persona} onChange={(e) => setPersona(e.target.value)} />
-          </Field>
+            <Field label={create.personaLabel} help={create.personaHelp}>
+              <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                {Object.values(personaPresets).map((p) => (
+                  <button key={p.label} type="button"
+                    className="px-3 py-1 border border-[var(--hanami-rule)] hover:border-[var(--hanami-ink-soft)] text-[var(--hanami-ink-soft)]"
+                    onClick={() => setPersona(p.seed)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <textarea className={`${inputCls} min-h-[180px]`} placeholder={create.personaPlaceholder} value={persona} onChange={(e) => setPersona(e.target.value)} />
+            </Field>
 
-          <Field label={create.lorebookLabel} help={create.lorebookHelp}>
-            <textarea className={`${inputCls} min-h-[120px]`} value={lorebook} onChange={(e) => setLorebook(e.target.value)} />
-          </Field>
+            <Field label={create.lorebookLabel} help={create.lorebookHelp}>
+              <textarea className={`${inputCls} min-h-[120px]`} value={lorebook} onChange={(e) => setLorebook(e.target.value)} />
+            </Field>
 
-          <Field label="Your wallet address (campaign owner)">
-            <input className={`${inputCls} mono`} placeholder="0x…" value={ownerAddress} onChange={(e) => setOwnerAddress(e.target.value)} />
-          </Field>
+            <Field label="Your wallet address (campaign owner)">
+              <input className={`${inputCls} font-mono`} placeholder="0x…" value={ownerAddress} onChange={(e) => setOwnerAddress(e.target.value)} />
+            </Field>
 
-          {err && <p className="text-[var(--hanami-stamp)] text-sm mono">{err}</p>}
+            {err && <p className="text-[var(--hanami-stamp)] text-sm font-mono">{err}</p>}
 
-          <button onClick={submit} disabled={busy}
-            className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-wide hover:bg-[var(--hanami-indigo)] disabled:opacity-50 transition-colors">
-            {busy ? create.submitting : create.submit}
-          </button>
+            <button onClick={submit} disabled={busy}
+              className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-50 transition-colors">
+              {busy ? create.submitting : create.submit}
+            </button>
+          </div>
         </div>
-      </div>
-    </main>
+
+        {/* SEAL PREVIEW — changes as you type the slug */}
+        <aside className="lg:sticky lg:top-12">
+          <div className="bg-[var(--hanami-paper-soft)] border border-[var(--hanami-rule)] p-5">
+            <div className="flex justify-between text-[10px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-4">
+              <span>Preview seal</span>
+              <span className="font-mono">seed · {previewSeed.toString(16).slice(0, 6)}</span>
+            </div>
+            <div className="bg-white border border-[var(--hanami-rule)] aspect-square flex items-center justify-center p-4">
+              <Seal seed={previewSeed} className="w-[80%] h-[80%]" />
+            </div>
+            <p className="mt-4 text-xs text-[var(--hanami-ink-soft)] leading-relaxed">
+              The seal is generated from the bouncer's tokenId at mint. This is a preview based on the slug.
+              The real seal is locked once you mint.
+            </p>
+          </div>
+        </aside>
+      </main>
+    </>
+  );
+}
+
+function Header() {
+  return (
+    <header className="relative z-10 flex justify-between items-center px-10 py-5">
+      <Link href="/" className="flex items-baseline gap-3 border-none" style={{ borderBottom: "none" }}>
+        <span className="font-serif text-[24px] tracking-wider">Hanami</span>
+        <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
+      </Link>
+    </header>
   );
 }
 
@@ -132,10 +195,10 @@ function Field({ label, help, children }: { label: string; help?: string; childr
   );
 }
 
-function Row({ k, v, explorer }: { k: string; v: string; explorer?: boolean }) {
-  const href = explorer ? `https://chainscan-galileo.0g.ai/${v.startsWith("0x") && v.length === 66 ? "tx" : "address"}/${v}` : null;
+function Row({ k, v, kind }: { k: string; v: string; kind?: "tx" | "address" }) {
+  const href = kind ? `https://chainscan-galileo.0g.ai/${kind}/${v}` : null;
   return (
-    <div className="grid grid-cols-[180px_1fr] gap-3 text-xs">
+    <div className="grid grid-cols-[200px_1fr] gap-3">
       <dt className="text-[var(--hanami-ink-soft)]">{k}</dt>
       <dd className="break-all">{href ? <a href={href} target="_blank" rel="noopener">{v}</a> : v}</dd>
     </div>

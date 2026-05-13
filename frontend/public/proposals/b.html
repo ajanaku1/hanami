@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hanami — Proposal B · Generative Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ede1;
+    --ink: #1a1714;
+    --ink-2: #5b544c;
+    --rule: #d9cfbe;
+    --indigo: #1f2c52;
+    --sakura: #d7708f;
+    --moss: #4a6442;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .serif { font-family: "Cormorant Garamond", serif; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* petal canvas */
+  #petals {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .nav, .hero, .row, footer { position: relative; z-index: 1; }
+
+  .nav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 22px 40px;
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .nav a { color: inherit; text-decoration: none; margin-left: 22px; }
+  .nav a:hover { color: var(--ink); }
+  .nav .brand {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    text-transform: none;
+  }
+
+  .hero {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 80px 40px 64px;
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 80px;
+    align-items: center;
+  }
+  .hero h1 {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 500;
+    font-size: 96px;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+  }
+  .hero h1 .em { color: var(--sakura); font-style: italic; }
+  .hero p.tag {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 26px;
+    color: var(--ink-2);
+    margin: 0 0 32px;
+  }
+  .hero p.lede {
+    font-size: 16px; max-width: 44ch; color: var(--ink); margin: 0 0 36px;
+  }
+  .cta-row { display: flex; gap: 20px; align-items: center; }
+  .btn {
+    display: inline-block; background: var(--ink); color: var(--paper);
+    padding: 14px 26px; font-size: 13px; letter-spacing: 0.08em;
+    text-transform: uppercase; text-decoration: none; transition: background 200ms ease;
+  }
+  .btn:hover { background: var(--indigo); }
+  .link { color: var(--ink-2); text-decoration: none; font-size: 13px; border-bottom: 1px solid var(--rule); }
+  .link:hover { color: var(--ink); }
+
+  /* seal card — procedurally drawn */
+  .seal-card {
+    aspect-ratio: 1 / 1.15;
+    background: #fbf6ec;
+    border: 1px solid var(--rule);
+    padding: 18px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 64px -32px rgba(26,23,20,0.25);
+    position: relative;
+  }
+  .seal-card .head {
+    display: flex; justify-content: space-between;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 12px;
+  }
+  .seal-canvas {
+    flex: 1; background: #fff;
+    border: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .seal-foot {
+    display: flex; justify-content: space-between;
+    margin-top: 12px;
+    font-size: 11px; color: var(--ink-2);
+  }
+  .seal-foot .name { font-family: "Cormorant Garamond", serif; font-size: 17px; color: var(--ink); }
+  .seal-foot .id { font-family: "JetBrains Mono", monospace; }
+
+  /* row of 3 mini seals — gallery */
+  .row {
+    max-width: 1100px;
+    margin: 80px auto;
+    padding: 0 40px;
+  }
+  .row h2 {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 500;
+    font-size: 32px;
+    margin: 0 0 4px;
+  }
+  .row p.sub {
+    color: var(--ink-2); font-size: 14px; margin: 0 0 32px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .grid .seal-card .seal-canvas svg { width: 70%; height: 70%; }
+  .grid .seal-foot .name { font-size: 15px; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 24px 40px;
+    display: flex; justify-content: space-between;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="petals"></canvas>
+
+<nav class="nav">
+  <div class="brand">Hanami</div>
+  <div>
+    <a href="#">Mint</a>
+    <a href="#">Gallery</a>
+    <a href="#">Docs</a>
+    <a href="#">Connect</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div>
+    <h1>An AI bouncer <span class="em">for your whitelist.</span></h1>
+    <p class="tag">Every bouncer iNFT mints its own seal.</p>
+    <p class="lede">
+      Your project sets the criteria. The bouncer holds a private conversation
+      with each applicant inside a TEE. The bouncer itself is an ERC-7857 iNFT
+      with a generated seal you can recognise on chain.
+    </p>
+    <div class="cta-row">
+      <a href="#" class="btn">Mint a bouncer</a>
+      <a href="#" class="link">See Mei-chan, token №3 →</a>
+    </div>
+  </div>
+
+  <!-- The hero seal: the bouncer iNFT as art -->
+  <div class="seal-card">
+    <div class="head">
+      <span>Bouncer</span>
+      <span class="mono">token №3</span>
+    </div>
+    <div class="seal-canvas">
+      <svg id="hero-seal" viewBox="0 0 200 200" width="78%" height="78%"></svg>
+    </div>
+    <div class="seal-foot">
+      <span class="name">Mei-chan</span>
+      <span class="id">0g://0x0552…a590</span>
+    </div>
+  </div>
+</section>
+
+<section class="row">
+  <h2>The bouncer collection.</h2>
+  <p class="sub">Each Hanami bouncer is an ERC-7857 iNFT. The seal is generated from its tokenId — same id, same seal, forever.</p>
+  <div class="grid">
+    <div class="seal-card">
+      <div class="head"><span>Bouncer</span><span class="mono">№3</span></div>
+      <div class="seal-canvas"><svg class="mini-seal" data-seed="3" viewBox="0 0 200 200"></svg></div>
+      <div class="seal-foot"><span class="name">Mei-chan</span><span class="id">approved 18</span></div>
+    </div>
+    <div class="seal-card">
+      <div class="head"><span>Bouncer</span><span class="mono">№4</span></div>
+      <div class="seal-canvas"><svg class="mini-seal" data-seed="11" viewBox="0 0 200 200"></svg></div>
+      <div class="seal-foot"><span class="name">Kenji</span><span class="id">approved 6</span></div>
+    </div>
+    <div class="seal-card">
+      <div class="head"><span>Bouncer</span><span class="mono">№5</span></div>
+      <div class="seal-canvas"><svg class="mini-seal" data-seed="29" viewBox="0 0 200 200"></svg></div>
+      <div class="seal-foot"><span class="name">Aiko</span><span class="id">approved 2</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>Hanami · 2026</span>
+  <span>Built on 0G — Compute · Storage · Chain · ERC-7857</span>
+</footer>
+
+<script>
+  // ===== seeded RNG =====
+  function mulberry32(a) { return function() { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  // ===== procedural seal generator =====
+  function drawSeal(svg, seed) {
+    const rand = mulberry32(seed * 2654435761 >>> 0);
+    const W = 200, H = 200, cx = 100, cy = 100;
+    const ns = "http://www.w3.org/2000/svg";
+    svg.innerHTML = "";
+
+    // outer ring (the seal stamp)
+    const ring = document.createElementNS(ns, "circle");
+    ring.setAttribute("cx", cx); ring.setAttribute("cy", cy);
+    ring.setAttribute("r", 88);
+    ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", "#c3536b");
+    ring.setAttribute("stroke-width", "2");
+    svg.appendChild(ring);
+
+    // inner ring
+    const ring2 = document.createElementNS(ns, "circle");
+    ring2.setAttribute("cx", cx); ring2.setAttribute("cy", cy);
+    ring2.setAttribute("r", 82);
+    ring2.setAttribute("fill", "none");
+    ring2.setAttribute("stroke", "#c3536b");
+    ring2.setAttribute("stroke-width", "0.5");
+    svg.appendChild(ring2);
+
+    // radial petals/spokes around center
+    const spokes = 6 + Math.floor(rand() * 4); // 6-9
+    for (let i = 0; i < spokes; i++) {
+      const ang = (i / spokes) * Math.PI * 2 + rand() * 0.2;
+      const r1 = 18 + rand() * 8;
+      const r2 = 58 + rand() * 14;
+      const x1 = cx + Math.cos(ang) * r1, y1 = cy + Math.sin(ang) * r1;
+      const x2 = cx + Math.cos(ang) * r2, y2 = cy + Math.sin(ang) * r2;
+      const ln = document.createElementNS(ns, "line");
+      ln.setAttribute("x1", x1); ln.setAttribute("y1", y1);
+      ln.setAttribute("x2", x2); ln.setAttribute("y2", y2);
+      ln.setAttribute("stroke", "#1a1714"); ln.setAttribute("stroke-width", "1.4"); ln.setAttribute("opacity", "0.8");
+      svg.appendChild(ln);
+    }
+
+    // petals at spoke tips
+    for (let i = 0; i < spokes; i++) {
+      const ang = (i / spokes) * Math.PI * 2 + rand() * 0.2;
+      const r = 62 + rand() * 10;
+      const x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r;
+      const petal = document.createElementNS(ns, "circle");
+      petal.setAttribute("cx", x); petal.setAttribute("cy", y);
+      petal.setAttribute("r", 3 + rand() * 3);
+      petal.setAttribute("fill", rand() > 0.5 ? "#c3536b" : "#1a1714");
+      petal.setAttribute("opacity", "0.85");
+      svg.appendChild(petal);
+    }
+
+    // center sigil — random kanji-esque marks
+    const marks = 3 + Math.floor(rand() * 3);
+    for (let i = 0; i < marks; i++) {
+      const x = cx - 14 + rand() * 28;
+      const y = cy - 14 + rand() * 28;
+      const w = 4 + rand() * 12;
+      const h = 1.5 + rand() * 1.5;
+      const r = document.createElementNS(ns, "rect");
+      r.setAttribute("x", x); r.setAttribute("y", y);
+      r.setAttribute("width", w); r.setAttribute("height", h);
+      r.setAttribute("fill", "#1a1714");
+      svg.appendChild(r);
+    }
+  }
+
+  drawSeal(document.getElementById("hero-seal"), 3);
+  document.querySelectorAll(".mini-seal").forEach(s => drawSeal(s, parseInt(s.dataset.seed)));
+
+  // ===== falling petals =====
+  const canvas = document.getElementById("petals");
+  const ctx = canvas.getContext("2d");
+  let W, H, petalArr = [];
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener("resize", resize); resize();
+
+  for (let i = 0; i < 28; i++) {
+    petalArr.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 4 + Math.random() * 6,
+      vy: 0.2 + Math.random() * 0.6,
+      vx: -0.3 + Math.random() * 0.6,
+      a: Math.random() * Math.PI * 2,
+      va: -0.01 + Math.random() * 0.02,
+      hue: Math.random() > 0.5 ? "#d7708f" : "#e9b5c2",
+      o: 0.25 + Math.random() * 0.4,
+    });
+  }
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of petalArr) {
+      p.x += p.vx; p.y += p.vy; p.a += p.va;
+      if (p.y > H + 10) { p.y = -10; p.x = Math.random() * W; }
+      if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.a);
+      ctx.globalAlpha = p.o;
+      ctx.fillStyle = p.hue;
+      ctx.beginPath();
+      // simple petal shape
+      ctx.ellipse(0, 0, p.r, p.r * 1.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
+</script>
+</body>
+</html>

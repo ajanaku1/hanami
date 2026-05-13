@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hanami — Proposal C · Curator's Lookbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&family=Noto+Serif+JP:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #efe7d6;
+    --paper-2: #e6dcc7;
+    --ink: #15110e;
+    --ink-2: #6b6358;
+    --rule: #b8a98e;
+    --indigo: #1c2a4e;
+    --sakura: #c64a6c;
+    --stamp: #8e2f2f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif { font-family: "Cormorant Garamond", serif; }
+  .jp { font-family: "Noto Serif JP", serif; }
+  .mono { font-family: "JetBrains Mono", monospace; }
+
+  /* magazine cover hero */
+  .cover {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* PORTRAIT pane */
+  .portrait {
+    background: linear-gradient(180deg, #c6b89a 0%, #a08e6c 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .portrait::after {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 50%),
+      radial-gradient(circle at 70% 80%, rgba(0,0,0,0.18), transparent 60%);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .portrait svg.figure {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+  }
+  .portrait .corner {
+    position: absolute; top: 32px; left: 32px;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(255,255,255,0.85);
+  }
+  .portrait .corner-r {
+    position: absolute; top: 32px; right: 32px;
+    text-align: right;
+    color: rgba(255,255,255,0.85);
+  }
+  .portrait .corner-r .num {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 56px; line-height: 1;
+    color: #fff;
+  }
+  .portrait .corner-r .lbl {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .portrait .caption {
+    position: absolute; bottom: 32px; left: 32px; right: 32px;
+    color: rgba(255,255,255,0.9);
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 19px;
+    border-top: 1px solid rgba(255,255,255,0.4);
+    padding-top: 14px;
+  }
+  .portrait .caption .who {
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* MAGAZINE COPY pane */
+  .copy {
+    padding: 48px 56px;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    background: var(--paper);
+  }
+  .copy .masthead {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 28px;
+  }
+  .copy .masthead .name {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 600;
+    font-size: 36px;
+    letter-spacing: -0.01em;
+  }
+  .copy .masthead .issue {
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .copy h1 {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 500;
+    font-size: 64px;
+    line-height: 0.95;
+    letter-spacing: -0.015em;
+    margin: 0 0 22px;
+  }
+  .copy h1 .em { font-style: italic; color: var(--sakura); }
+  .copy .dek {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink);
+    line-height: 1.35;
+    margin: 0 0 28px;
+    max-width: 32ch;
+  }
+  .copy .lede {
+    font-size: 15px; max-width: 38ch; color: var(--ink-2); margin: 0 0 36px;
+  }
+  .copy .ctas { display: flex; gap: 20px; align-items: baseline; }
+  .copy .ctas .btn {
+    background: var(--ink); color: var(--paper);
+    padding: 14px 24px; font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; transition: background 200ms ease;
+  }
+  .copy .ctas .btn:hover { background: var(--indigo); }
+  .copy .ctas .link {
+    color: var(--ink); font-size: 12px; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 2px;
+  }
+
+  .copy .meta {
+    margin-top: 36px;
+    display: flex; gap: 24px;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  /* SECOND SPREAD — chat as a private correspondence */
+  .spread {
+    display: grid; grid-template-columns: 1fr 1.4fr;
+    min-height: 80vh;
+    border-bottom: 1px solid var(--rule);
+  }
+  .spread .left {
+    background: var(--paper-2);
+    padding: 48px;
+    border-right: 1px solid var(--rule);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .spread .left h2 {
+    font-family: "Cormorant Garamond", serif;
+    font-weight: 500;
+    font-size: 44px;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+  }
+  .spread .left p { font-size: 14px; color: var(--ink-2); max-width: 36ch; }
+  .spread .left .quote {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink);
+    line-height: 1.45;
+    margin-top: 32px;
+    padding-left: 16px;
+    border-left: 2px solid var(--sakura);
+    max-width: 38ch;
+  }
+  .spread .left .attrib {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-2); margin-top: 12px;
+  }
+
+  .spread .right {
+    background: var(--paper);
+    padding: 56px 64px;
+    position: relative;
+  }
+  .spread .right::before {
+    content: "II.";
+    position: absolute; top: 28px; right: 36px;
+    font-family: "Cormorant Garamond", serif;
+    font-size: 80px; font-weight: 400;
+    color: var(--rule);
+    line-height: 1;
+  }
+  .spread .right .stamp-line {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-2);
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 36px;
+  }
+  .spread .right .stamp-line .tee {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .spread .right .stamp-line .tee::before {
+    content: ""; width: 8px; height: 8px; background: var(--sakura); border-radius: 50%;
+  }
+  .turn { margin-bottom: 28px; max-width: 52ch; }
+  .turn.mei .who {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 19px;
+    color: var(--sakura);
+    margin-bottom: 6px;
+  }
+  .turn.mei .what {
+    font-family: "Cormorant Garamond", serif;
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .turn.you { padding-left: 32px; border-left: 1px solid var(--rule); }
+  .turn.you .who {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-2); margin-bottom: 4px;
+  }
+  .turn.you .what { font-size: 15px; color: var(--ink); line-height: 1.55; }
+
+  footer {
+    padding: 24px 40px;
+    display: flex; justify-content: space-between;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <!-- LEFT: stylized portrait of Mei-chan, drawn in SVG -->
+  <div class="portrait">
+    <div class="corner">Hanami · 花見 · Issue №01</div>
+    <div class="corner-r">
+      <div class="num">№3</div>
+      <div class="lbl">bouncer / iNFT</div>
+    </div>
+
+    <svg class="figure" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="hair" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#1c1612"/>
+          <stop offset="100%" stop-color="#3b2a20"/>
+        </linearGradient>
+        <linearGradient id="skin" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stop-color="#efd7be"/>
+          <stop offset="100%" stop-color="#c89a78"/>
+        </linearGradient>
+        <linearGradient id="robe" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#2a3653"/>
+          <stop offset="100%" stop-color="#0e1530"/>
+        </linearGradient>
+      </defs>
+
+      <!-- shoulders / robe -->
+      <path d="M0,600 L0,500 C40,460 110,440 160,440 L240,440 C290,440 360,460 400,500 L400,600 Z" fill="url(#robe)"/>
+      <!-- neck -->
+      <rect x="180" y="380" width="40" height="80" fill="url(#skin)"/>
+      <!-- collar -->
+      <path d="M150,440 L250,440 L240,470 L160,470 Z" fill="#c64a6c" opacity="0.85"/>
+      <!-- face oval -->
+      <ellipse cx="200" cy="320" rx="78" ry="98" fill="url(#skin)"/>
+      <!-- hair (asymmetric bob with bangs) -->
+      <path d="M122,280 C122,200 168,170 200,170 C232,170 278,200 278,280 L278,310 C266,300 254,294 240,292 C228,275 218,268 200,268 C182,268 172,275 160,292 C146,294 134,300 122,310 Z" fill="url(#hair)"/>
+      <!-- hair side strand -->
+      <path d="M122,310 C118,360 120,400 130,440 L116,430 C100,395 100,355 110,310 Z" fill="url(#hair)"/>
+      <!-- bangs -->
+      <path d="M150,265 C170,255 200,260 220,254 C232,256 246,260 256,272 C242,288 226,294 216,290 L200,288 L184,290 C172,294 156,288 142,272 Z" fill="url(#hair)"/>
+      <!-- eyes (closed/downcast — quiet attention) -->
+      <path d="M168,322 C176,326 184,326 190,322" stroke="#1c1612" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <path d="M210,322 C216,326 224,326 232,322" stroke="#1c1612" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <!-- subtle eyelash hint -->
+      <path d="M168,320 L170,318 M174,321 L175,319 M180,321 L181,319" stroke="#1c1612" stroke-width="0.7"/>
+      <path d="M222,321 L223,319 M216,321 L217,319 M211,320 L213,318" stroke="#1c1612" stroke-width="0.7"/>
+      <!-- nose -->
+      <path d="M198,338 C198,350 196,358 194,362 C198,366 202,366 206,362 C204,358 202,350 202,338" stroke="#a87a5a" stroke-width="1" fill="none"/>
+      <!-- mouth (small, neutral, considering) -->
+      <path d="M188,378 C196,381 204,381 212,378" stroke="#8a3a48" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <!-- single earring (sakura-pink dot, the "seal" reference) -->
+      <circle cx="124" cy="345" r="5" fill="#c64a6c"/>
+      <!-- one stray hair across forehead -->
+      <path d="M180,272 C190,280 200,284 214,280" stroke="#1c1612" stroke-width="0.8" fill="none" opacity="0.7"/>
+      <!-- subtle paper-grain texture overlay -->
+      <rect x="0" y="0" width="400" height="600" fill="url(#noisepattern)" opacity="0.05"/>
+    </svg>
+
+    <div class="caption">
+      <div class="who">№3 — Mei-chan</div>
+      <span class="jp">花見</span> · Aoyama gallerist, twenty-three years curating contemporary Japanese painting. Available for whitelist screening.
+    </div>
+  </div>
+
+  <!-- RIGHT: magazine copy -->
+  <div class="copy">
+    <div class="masthead">
+      <div class="name">Hanami</div>
+      <div class="issue">Spring · 2026 · Issue №01</div>
+    </div>
+
+    <div>
+      <h1>Commission <span class="em">your gallerist.</span></h1>
+      <p class="dek">An AI bouncer that interviews your whitelist applicants inside a TEE — and earns reputation, on chain.</p>
+      <p class="lede">
+        Your project sets the criteria. The bouncer holds a private conversation
+        with each applicant. The bouncer is an ERC-7857 iNFT — yours to keep,
+        rent, or retire. The whitelist exports as a Merkle root any EVM mint can use.
+      </p>
+      <div class="ctas">
+        <a href="#" class="btn">Commission a bouncer</a>
+        <a href="#" class="link">Talk to Mei-chan →</a>
+      </div>
+    </div>
+
+    <div class="meta">
+      <span>· Compute on TEE</span>
+      <span>· Storage on 0G</span>
+      <span>· ERC-7857</span>
+    </div>
+  </div>
+</section>
+
+<!-- SECOND SPREAD: chat as private correspondence -->
+<section class="spread">
+  <div class="left">
+    <div>
+      <h2>The conversation that decides.</h2>
+      <p>Three to six turns. Inside a TEE. The criteria stay private; the verdict lands on chain with its attestation hash.</p>
+    </div>
+    <div>
+      <div class="quote">"Tell me what made you reach out — and please be specific. Not the project, the moment."</div>
+      <div class="attrib">— Mei-chan, opening turn</div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="stamp-line">
+      <span>Conversation №042 · Sakura Society</span>
+      <span class="tee">tee verified · 0xa48f…7836</span>
+    </div>
+
+    <div class="turn mei">
+      <div class="who">Mei-chan</div>
+      <div class="what">Welcome. Tell me what made you reach out — and please be specific. Not the project, the moment.</div>
+    </div>
+    <div class="turn you">
+      <div class="who">You</div>
+      <div class="what">A piece on gampi at a Yanaka studio last autumn. The paper caught the morning light differently than the catalogue had promised. I want to be in a room that makes space for that kind of noticing again.</div>
+    </div>
+    <div class="turn mei">
+      <div class="who">Mei-chan</div>
+      <div class="what">Whose studio?</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>Hanami · 2026</span>
+  <span>Galileo · 0xA4D3…68b7</span>
+</footer>
+
+</body>
+</html>

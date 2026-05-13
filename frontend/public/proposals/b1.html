@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hanami — Variant B1 · Portrait ‖ Seal</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&family=Noto+Serif+JP:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#f3ede1; --paper-2:#ebe3d2; --ink:#1a1714; --ink-2:#5b544c;
+    --rule:#c6b89e; --indigo:#1f2c52; --sakura:#c64a6c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; }
+  body { background:var(--paper); color:var(--ink); font-family:"Inter",system-ui,sans-serif;
+         font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  .mono { font-family:"JetBrains Mono",monospace; }
+  .jp { font-family:"Noto Serif JP",serif; }
+  #petals { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .nav, .hero, .row, footer { position:relative; z-index:1; }
+
+  .nav { display:flex; justify-content:space-between; align-items:center;
+         padding:22px 40px; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-2); }
+  .nav .brand { font-family:"Cormorant Garamond",serif; font-size:24px; letter-spacing:0.08em;
+                color:var(--ink); text-transform:none; display:flex; align-items:baseline; gap:10px; }
+  .nav .brand .jp { font-size:18px; color:var(--ink-2); }
+  .nav a { color:inherit; text-decoration:none; margin-left:22px; }
+  .nav a:hover { color:var(--ink); }
+
+  /* HERO — 50/50 portrait | seal */
+  .hero {
+    max-width:1240px; margin:0 auto; padding:48px 40px 56px;
+    display:grid; grid-template-columns:1fr 1fr; gap:28px;
+  }
+  .panel { background:#fbf6ec; border:1px solid var(--rule);
+           box-shadow:0 24px 64px -32px rgba(26,23,20,0.25);
+           display:flex; flex-direction:column; position:relative; aspect-ratio: 0.82 / 1; }
+  .panel .head {
+    display:flex; justify-content:space-between; padding:14px 18px;
+    border-bottom:1px solid var(--rule); font-size:10px; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--ink-2);
+  }
+  .panel .body { flex:1; display:flex; align-items:center; justify-content:center; padding:18px; }
+  .panel .foot {
+    display:flex; justify-content:space-between; padding:14px 18px;
+    border-top:1px solid var(--rule); font-size:11px; color:var(--ink-2);
+  }
+  .panel .foot .name { font-family:"Cormorant Garamond",serif; font-size:18px; color:var(--ink); }
+
+  /* portrait panel uses gradient background like C */
+  .portrait-bg {
+    background: linear-gradient(180deg, #c6b89a 0%, #a08e6c 100%);
+  }
+  .portrait-bg svg.figure { width:100%; height:100%; }
+
+  /* seal panel keeps clean paper */
+  .seal-bg .body { background:#fff; }
+  .seal-bg .body svg { width:75%; height:75%; }
+
+  /* COPY block UNDER the two cards */
+  .copy {
+    max-width:1240px; margin:0 auto; padding:48px 40px 16px;
+    display:grid; grid-template-columns: 1fr 1fr; gap:28px; align-items:start;
+  }
+  .copy h1 {
+    font-family:"Cormorant Garamond",serif; font-weight:500;
+    font-size:72px; line-height:0.95; letter-spacing:-0.02em; margin:0 0 16px;
+  }
+  .copy h1 .em { color:var(--sakura); font-style:italic; }
+  .copy .tag {
+    font-family:"Cormorant Garamond",serif; font-style:italic;
+    font-size:24px; color:var(--ink-2); margin:0 0 26px; max-width:24ch;
+  }
+  .copy .lede { font-size:15px; max-width:44ch; color:var(--ink); margin:0 0 32px; }
+  .cta-row { display:flex; gap:20px; align-items:center; }
+  .btn { background:var(--ink); color:var(--paper); padding:14px 26px;
+         font-size:13px; letter-spacing:0.08em; text-transform:uppercase;
+         text-decoration:none; transition:background 200ms ease; }
+  .btn:hover { background:var(--indigo); }
+  .link { color:var(--ink-2); text-decoration:none; font-size:13px;
+          border-bottom:1px solid var(--rule); }
+  .link:hover { color:var(--ink); }
+
+  .right-col { padding-top: 12px; }
+  .right-col .field { border-top:1px solid var(--rule); padding:14px 0; display:flex; justify-content:space-between; font-size:13px; }
+  .right-col .field .k { color:var(--ink-2); text-transform:uppercase; letter-spacing:0.1em; font-size:11px; }
+  .right-col .field .v { font-family:"JetBrains Mono",monospace; font-size:12px; }
+  .right-col .field:last-child { border-bottom:1px solid var(--rule); }
+
+  /* gallery row */
+  .row { max-width:1240px; margin:80px auto 40px; padding:0 40px; }
+  .row h2 { font-family:"Cormorant Garamond",serif; font-weight:500; font-size:36px; margin:0 0 8px; }
+  .row p.sub { color:var(--ink-2); font-size:14px; margin:0 0 28px; max-width:60ch; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+  .grid .mini { aspect-ratio:1/1.15; background:#fbf6ec; border:1px solid var(--rule); padding:14px;
+                display:flex; flex-direction:column; box-shadow:0 14px 40px -32px rgba(26,23,20,0.25); }
+  .grid .mini .h { display:flex; justify-content:space-between; font-size:10px; letter-spacing:0.16em;
+                   text-transform:uppercase; color:var(--ink-2); margin-bottom:8px; }
+  .grid .mini .b { flex:1; background:#fff; border:1px solid var(--rule); display:flex;
+                   align-items:center; justify-content:center; }
+  .grid .mini .b svg { width:75%; height:75%; }
+  .grid .mini .f { margin-top:10px; display:flex; justify-content:space-between;
+                   font-size:11px; color:var(--ink-2); }
+  .grid .mini .f .n { font-family:"Cormorant Garamond",serif; color:var(--ink); font-size:15px; }
+
+  footer { border-top:1px solid var(--rule); padding:24px 40px; display:flex;
+           justify-content:space-between; font-size:11px; letter-spacing:0.12em;
+           text-transform:uppercase; color:var(--ink-2); }
+</style>
+</head>
+<body>
+
+<canvas id="petals"></canvas>
+
+<nav class="nav">
+  <div class="brand">Hanami <span class="jp">花見</span></div>
+  <div>
+    <a href="#">Mint</a><a href="#">Gallery</a><a href="#">Docs</a><a href="#">Connect</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <!-- LEFT: portrait panel -->
+  <div class="panel portrait-bg">
+    <div class="head" style="color:rgba(255,255,255,0.85); border-bottom-color:rgba(255,255,255,0.3);">
+      <span>Persona</span><span>Bouncer №3</span>
+    </div>
+    <div class="body" style="padding:0;">
+      <svg class="figure" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="hair" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#1c1612"/><stop offset="100%" stop-color="#3b2a20"/>
+          </linearGradient>
+          <linearGradient id="skin" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#efd7be"/><stop offset="100%" stop-color="#c89a78"/>
+          </linearGradient>
+          <linearGradient id="robe" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#2a3653"/><stop offset="100%" stop-color="#0e1530"/>
+          </linearGradient>
+        </defs>
+        <path d="M0,600 L0,500 C40,460 110,440 160,440 L240,440 C290,440 360,460 400,500 L400,600 Z" fill="url(#robe)"/>
+        <rect x="180" y="380" width="40" height="80" fill="url(#skin)"/>
+        <path d="M150,440 L250,440 L240,470 L160,470 Z" fill="#c64a6c" opacity="0.85"/>
+        <ellipse cx="200" cy="320" rx="78" ry="98" fill="url(#skin)"/>
+        <path d="M122,280 C122,200 168,170 200,170 C232,170 278,200 278,280 L278,310 C266,300 254,294 240,292 C228,275 218,268 200,268 C182,268 172,275 160,292 C146,294 134,300 122,310 Z" fill="url(#hair)"/>
+        <path d="M122,310 C118,360 120,400 130,440 L116,430 C100,395 100,355 110,310 Z" fill="url(#hair)"/>
+        <path d="M150,265 C170,255 200,260 220,254 C232,256 246,260 256,272 C242,288 226,294 216,290 L200,288 L184,290 C172,294 156,288 142,272 Z" fill="url(#hair)"/>
+        <path d="M168,322 C176,326 184,326 190,322" stroke="#1c1612" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M210,322 C216,326 224,326 232,322" stroke="#1c1612" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M198,338 C198,350 196,358 194,362 C198,366 202,366 206,362 C204,358 202,350 202,338" stroke="#a87a5a" stroke-width="1" fill="none"/>
+        <path d="M188,378 C196,381 204,381 212,378" stroke="#8a3a48" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <circle cx="124" cy="345" r="5" fill="#c64a6c"/>
+      </svg>
+    </div>
+    <div class="foot" style="color:rgba(255,255,255,0.85); border-top-color:rgba(255,255,255,0.3); background:rgba(0,0,0,0.18);">
+      <span class="name" style="color:#fff;">Mei-chan</span>
+      <span>Aoyama · 23 yrs</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: seal panel -->
+  <div class="panel seal-bg">
+    <div class="head">
+      <span>On-chain identity</span><span class="mono">ERC-7857</span>
+    </div>
+    <div class="body">
+      <svg id="hero-seal" viewBox="0 0 200 200"></svg>
+    </div>
+    <div class="foot">
+      <span class="name">Seal of №3</span>
+      <span class="mono">0g://0552…a590</span>
+    </div>
+  </div>
+</section>
+
+<!-- COPY UNDER the two cards -->
+<section class="copy">
+  <div>
+    <h1>Two halves <span class="em">of one iNFT.</span></h1>
+    <p class="tag">A persona on the left, a procedural seal on the right.</p>
+    <p class="lede">
+      Each Hanami bouncer is an ERC-7857 iNFT. The persona — voice, criteria, lorebook —
+      is yours to write. The seal — its on-chain face — is generated from the tokenId and
+      stays the same forever.
+    </p>
+    <div class="cta-row">
+      <a class="btn" href="#">Mint a bouncer</a>
+      <a class="link" href="#">Talk to Mei-chan →</a>
+    </div>
+  </div>
+  <div class="right-col">
+    <div class="field"><span class="k">token</span><span class="v">№3</span></div>
+    <div class="field"><span class="k">persona</span><span class="v">0g://0552…a590</span></div>
+    <div class="field"><span class="k">lorebook</span><span class="v">0g://7ff3…cfb6</span></div>
+    <div class="field"><span class="k">tee verifier</span><span class="v">0xa48f…7836</span></div>
+    <div class="field"><span class="k">rep score</span><span class="v">18 approved</span></div>
+  </div>
+</section>
+
+<section class="row">
+  <h2>The collection.</h2>
+  <p class="sub">Three bouncers active on Galileo. Same id, same seal, forever.</p>
+  <div class="grid">
+    <div class="mini">
+      <div class="h"><span>Bouncer</span><span class="mono">№3</span></div>
+      <div class="b"><svg class="mini-seal" data-seed="3" viewBox="0 0 200 200"></svg></div>
+      <div class="f"><span class="n">Mei-chan</span><span>18 approved</span></div>
+    </div>
+    <div class="mini">
+      <div class="h"><span>Bouncer</span><span class="mono">№4</span></div>
+      <div class="b"><svg class="mini-seal" data-seed="11" viewBox="0 0 200 200"></svg></div>
+      <div class="f"><span class="n">Kenji</span><span>6 approved</span></div>
+    </div>
+    <div class="mini">
+      <div class="h"><span>Bouncer</span><span class="mono">№5</span></div>
+      <div class="b"><svg class="mini-seal" data-seed="29" viewBox="0 0 200 200"></svg></div>
+      <div class="f"><span class="n">Aiko</span><span>2 approved</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>Hanami · 2026</span>
+  <span>Built on 0G — Compute · Storage · Chain · ERC-7857</span>
+</footer>
+
+<script>
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+  function drawSeal(svg, seed) {
+    const rand=mulberry32(seed*2654435761>>>0);
+    const ns="http://www.w3.org/2000/svg"; const cx=100, cy=100;
+    svg.innerHTML="";
+    const ring=document.createElementNS(ns,"circle");
+    ring.setAttribute("cx",cx); ring.setAttribute("cy",cy); ring.setAttribute("r",88);
+    ring.setAttribute("fill","none"); ring.setAttribute("stroke","#c64a6c"); ring.setAttribute("stroke-width","2");
+    svg.appendChild(ring);
+    const ring2=document.createElementNS(ns,"circle");
+    ring2.setAttribute("cx",cx); ring2.setAttribute("cy",cy); ring2.setAttribute("r",82);
+    ring2.setAttribute("fill","none"); ring2.setAttribute("stroke","#c64a6c"); ring2.setAttribute("stroke-width","0.5");
+    svg.appendChild(ring2);
+    const spokes=6+Math.floor(rand()*4);
+    for(let i=0;i<spokes;i++){
+      const ang=(i/spokes)*Math.PI*2+rand()*0.2;
+      const r1=18+rand()*8, r2=58+rand()*14;
+      const ln=document.createElementNS(ns,"line");
+      ln.setAttribute("x1",cx+Math.cos(ang)*r1); ln.setAttribute("y1",cy+Math.sin(ang)*r1);
+      ln.setAttribute("x2",cx+Math.cos(ang)*r2); ln.setAttribute("y2",cy+Math.sin(ang)*r2);
+      ln.setAttribute("stroke","#1a1714"); ln.setAttribute("stroke-width","1.4"); ln.setAttribute("opacity","0.8");
+      svg.appendChild(ln);
+    }
+    for(let i=0;i<spokes;i++){
+      const ang=(i/spokes)*Math.PI*2+rand()*0.2;
+      const r=62+rand()*10;
+      const c=document.createElementNS(ns,"circle");
+      c.setAttribute("cx",cx+Math.cos(ang)*r); c.setAttribute("cy",cy+Math.sin(ang)*r);
+      c.setAttribute("r",3+rand()*3); c.setAttribute("fill",rand()>0.5?"#c64a6c":"#1a1714");
+      c.setAttribute("opacity","0.85"); svg.appendChild(c);
+    }
+    const marks=3+Math.floor(rand()*3);
+    for(let i=0;i<marks;i++){
+      const r=document.createElementNS(ns,"rect");
+      r.setAttribute("x",cx-14+rand()*28); r.setAttribute("y",cy-14+rand()*28);
+      r.setAttribute("width",4+rand()*12); r.setAttribute("height",1.5+rand()*1.5);
+      r.setAttribute("fill","#1a1714"); svg.appendChild(r);
+    }
+  }
+  drawSeal(document.getElementById("hero-seal"),3);
+  document.querySelectorAll(".mini-seal").forEach(s=>drawSeal(s,parseInt(s.dataset.seed)));
+
+  const c=document.getElementById("petals"), ctx=c.getContext("2d");
+  let W,H,arr=[];
+  function rs(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  window.addEventListener("resize",rs); rs();
+  for(let i=0;i<28;i++) arr.push({x:Math.random()*W,y:Math.random()*H,r:4+Math.random()*6,
+    vy:0.2+Math.random()*0.6,vx:-0.3+Math.random()*0.6,a:Math.random()*Math.PI*2,
+    va:-0.01+Math.random()*0.02,hue:Math.random()>0.5?"#d7708f":"#e9b5c2",o:0.25+Math.random()*0.4});
+  (function tick(){ctx.clearRect(0,0,W,H);
+    for(const p of arr){p.x+=p.vx;p.y+=p.vy;p.a+=p.va;
+      if(p.y>H+10){p.y=-10;p.x=Math.random()*W;}
+      if(p.x<-10)p.x=W+10; if(p.x>W+10)p.x=-10;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a);
+      ctx.globalAlpha=p.o; ctx.fillStyle=p.hue;
+      ctx.beginPath(); ctx.ellipse(0,0,p.r,p.r*1.6,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    } requestAnimationFrame(tick); })();
+</script>
+</body>
+</html>
