@@ -23,9 +23,11 @@ async function fetchWithRetry(url: string, init: RequestInit, attempts = 5): Pro
     try { return await fetch(url, init); }
     catch (e) {
       lastErr = e;
-      const code = (e as { cause?: { code?: string } })?.cause?.code;
-      const retryable = code === "ECONNRESET" || code === "ETIMEDOUT" || code === "ENOTFOUND" || code === "ECONNREFUSED";
-      if (!retryable) throw e;
+      const msg = (e as { message?: string })?.message ?? "";
+      const code = (e as { cause?: { code?: string } })?.cause?.code ?? "";
+      // any node fetch failure is transient on this testnet — retry them all
+      const transient = msg.includes("fetch failed") || /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR/.test(code);
+      if (!transient) throw e;
       await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, i))); // 2s, 4s, 8s, 16s, 32s
     }
   }

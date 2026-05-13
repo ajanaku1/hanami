@@ -28,7 +28,9 @@ const SCENARIOS: Scenario[] = [
     messages: [
       "I came to a Yanaka studio visit last autumn. The painter was showing how gampi catches morning light differently than the catalogue had promised. That kind of attention is what I've been looking for.",
       "I've been collecting on paper for about six years now. I'm not on Twitter much. The reason I want in is the Sunday morning pace, honestly.",
+      "Yamada-san's studio, the one on the side street past the temple. The room had two windows and she'd rotated the works between them through the morning.",
       "I'd want to come quietly, listen first. Not as a collector flexing.",
+      "If I'm right for it, I'd be one of the quieter members. If not, I respect that.",
     ],
   },
   {
@@ -38,7 +40,9 @@ const SCENARIOS: Scenario[] = [
     messages: [
       "I keep coming back to Kawanabe Kyōsai's late ink studies. The economy of them. There's a confidence in restraint I don't see often in current work.",
       "Matte finish matters because the work meets the room differently. Gloss flattens the room into the work.",
+      "I bought a small Tanaka piece in 2022, gampi on board. It's lived above the desk where I read. I haven't sold it; I don't plan to.",
       "I'd be one of the quieter ones. Mostly I want to learn.",
+      "I understand the Society isn't for everyone and that you'll decide. That's fine.",
     ],
   },
   {
