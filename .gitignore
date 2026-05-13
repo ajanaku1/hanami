@@ -40,3 +40,5 @@ goal.md
 prompt.md
 .claude/
 *.db
+*.db-wal
+*.db-shm
