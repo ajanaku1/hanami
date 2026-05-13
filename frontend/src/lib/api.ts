@@ -1,0 +1,80 @@
+const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
+
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status} ${path}: ${body}`);
+  }
+  return (await res.json()) as T;
+}
+
+export type CreateCampaignBody = {
+  slug: string;
+  name: string;
+  targetChain: "ethereum" | "base" | "arbitrum" | "op" | "0g";
+  wlSizeCap: number;
+  persona: string;
+  lorebook: string;
+  ownerAddress: string;
+};
+
+export type CreateCampaignResult = {
+  slug: string;
+  bouncerTokenId: string;
+  bouncerMintTx: string;
+  campaignAddress: string;
+  campaignTx: string;
+  personaRoot: string;
+  lorebookRoot: string | null;
+};
+
+export type Campaign = {
+  slug: string;
+  name: string;
+  bouncer_token_id: number;
+  bouncer_address: string;
+  campaign_address: string;
+  target_chain: string;
+  wl_size_cap: number;
+  persona_uri: string;
+  lorebook_uri: string | null;
+  owner_address: string;
+  finalized_at: number | null;
+  merkle_root: string | null;
+};
+
+export type TurnResult = {
+  reply: string;
+  decision: "approve" | "reject" | null;
+  decisionTx?: string;
+  attestationHash?: string;
+  reasoningRoot?: string;
+};
+
+export type AdminPayload = {
+  campaign: Campaign;
+  applicants: Array<{
+    wallet_address: string;
+    decision: "approved" | "rejected" | null;
+    decision_tx: string | null;
+    attestation_hash: string | null;
+    finished_at: number | null;
+  }>;
+  counts: { approved: number; rejected: number; pending: number };
+};
+
+export const api = {
+  createCampaign: (body: CreateCampaignBody) =>
+    call<CreateCampaignResult>("/api/campaigns", { method: "POST", body: JSON.stringify(body) }),
+  getCampaign: (slug: string) => call<Campaign>(`/api/campaigns/${slug}`),
+  sendTurn: (slug: string, walletAddress: string, message: string) =>
+    call<TurnResult>(`/api/campaigns/${slug}/turns`, {
+      method: "POST",
+      body: JSON.stringify({ walletAddress, message }),
+    }),
+  getAdmin: (slug: string) => call<AdminPayload>(`/api/campaigns/${slug}/admin`),
+};
