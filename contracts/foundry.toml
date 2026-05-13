@@ -14,4 +14,4 @@ remappings = [
 galileo = "${GALILEO_RPC_URL}"
 
 [etherscan]
-galileo = { key = "${CHAINSCAN_API_KEY}", url = "${CHAINSCAN_API_URL}", chain = 16601 }
+galileo = { key = "${CHAINSCAN_API_KEY}", url = "${CHAINSCAN_API_URL}", chain = 16602 }
