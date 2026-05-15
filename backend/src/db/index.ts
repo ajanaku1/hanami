@@ -14,3 +14,4 @@ db.exec(readFileSync(SCHEMA_PATH, "utf8"));
 const cols = db.prepare("PRAGMA table_info(campaigns)").all() as Array<{ name: string }>;
 const has = (name: string) => cols.some((c) => c.name === name);
 if (!has("visibility")) db.exec("ALTER TABLE campaigns ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'");
+if (!has("image_uri")) db.exec("ALTER TABLE campaigns ADD COLUMN image_uri TEXT");

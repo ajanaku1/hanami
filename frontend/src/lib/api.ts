@@ -12,24 +12,53 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-export type CreateCampaignBody = {
+export type PrepareCampaignBody = {
+  slug: string;
+  persona: string;
+  lorebook: string;
+  ownerAddress: string;
+};
+
+export type PrepareCampaignResult = {
+  personaURI: string;
+  lorebookURI: string;
+  imageURI: string;
+  personaRoot: string;
+  lorebookRoot: string;
+  imageRoot: string;
+  backendAddress: string;
+  registryAddress: string;
+  factoryAddress: string;
+};
+
+export type IndexCampaignBody = {
   slug: string;
   name: string;
   targetChain: "ethereum" | "base" | "arbitrum" | "op" | "0g";
   wlSizeCap: number;
-  persona: string;
-  lorebook: string;
   ownerAddress: string;
+  visibility: "public" | "private";
+  personaURI: string;
+  lorebookURI: string;
+  imageURI: string;
+  bouncerTokenId: string;
+  bouncerMintTx: string;
+  authorizeTx: string;
+  campaignAddress: string;
+  campaignTx: string;
 };
 
 export type CreateCampaignResult = {
   slug: string;
   bouncerTokenId: string;
   bouncerMintTx: string;
+  authorizeTx: string;
   campaignAddress: string;
   campaignTx: string;
   personaRoot: string;
   lorebookRoot: string | null;
+  imageURI?: string | null;
+  visibility: "public" | "private";
 };
 
 export type Campaign = {
@@ -42,6 +71,7 @@ export type Campaign = {
   wl_size_cap: number;
   persona_uri: string;
   lorebook_uri: string | null;
+  image_uri: string | null;
   owner_address: string;
   finalized_at: number | null;
   merkle_root: string | null;
@@ -92,8 +122,10 @@ export type MerkleExportResult = {
 export type FinalizeBody = { signature: string; caller: string; nonce: number };
 
 export const api = {
-  createCampaign: (body: CreateCampaignBody) =>
-    call<CreateCampaignResult>("/api/campaigns", { method: "POST", body: JSON.stringify(body) }),
+  prepareCampaign: (body: PrepareCampaignBody) =>
+    call<PrepareCampaignResult>("/api/campaigns/prepare", { method: "POST", body: JSON.stringify(body) }),
+  indexCampaign: (body: IndexCampaignBody) =>
+    call<CreateCampaignResult>("/api/campaigns/index", { method: "POST", body: JSON.stringify(body) }),
   getCampaign: (slug: string) => call<Campaign>(`/api/campaigns/${slug}`),
   listCampaignsByOwner: (owner: string) =>
     call<{ campaigns: Campaign[] }>(`/api/campaigns?owner=${owner}`),
@@ -109,6 +141,11 @@ export const api = {
     call<{ slug: string; root: string; txHash: string }>(`/api/campaigns/${slug}/finalize`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  beginChat: (slug: string, walletAddress: string) =>
+    call<{ reply: string }>(`/api/campaigns/${slug}/begin`, {
+      method: "POST",
+      body: JSON.stringify({ walletAddress }),
     }),
   sendTurn: (slug: string, walletAddress: string, message: string) =>
     call<TurnResult>(`/api/campaigns/${slug}/turns`, {

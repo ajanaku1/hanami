@@ -42,7 +42,7 @@ export default function GalleryPage() {
         {campaigns && (
           <p className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-10">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
-            {campaigns.length} public bouncer{campaigns.length === 1 ? "" : "s"} on Galileo
+            {campaigns.length} public bouncer{campaigns.length === 1 ? "" : "s"} on 0G
           </p>
         )}
 

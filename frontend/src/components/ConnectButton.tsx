@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAccount, useConnect, useDisconnect, useChainId, useSwitchChain } from "wagmi";
-import { galileo } from "@/lib/wagmi";
+import { zeroG } from "@/lib/wagmi";
 
 type Props = { compact?: boolean };
 
@@ -31,10 +31,10 @@ export function ConnectButton({ compact = false }: Props) {
     : "bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-40 transition-colors";
 
   // wrong chain — single action, no dropdown
-  if (isConnected && address && chainId !== galileo.id) {
+  if (isConnected && address && chainId !== zeroG.id) {
     return (
-      <button onClick={() => switchChain({ chainId: galileo.id })} disabled={switching} className={ctaCls}>
-        {switching ? "switching…" : "switch to Galileo"}
+      <button onClick={() => switchChain({ chainId: zeroG.id })} disabled={switching} className={ctaCls}>
+        {switching ? "switching…" : "switch to 0G"}
       </button>
     );
   }

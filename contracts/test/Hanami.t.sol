@@ -19,7 +19,7 @@ contract HanamiTest is Test {
 
     function _mintBouncer() internal returns (uint256 tokenId) {
         vm.prank(project);
-        tokenId = registry.mintBouncer("ipfs://persona", "ipfs://lore", bytes32(uint256(1)));
+        tokenId = registry.mintBouncer("ipfs://persona", "ipfs://lore", "ipfs://image", bytes32(uint256(1)));
     }
 
     function test_MintAssignsOwnerAndStoresURIs() public {
@@ -33,7 +33,7 @@ contract HanamiTest is Test {
     function test_RevertWhen_MintWithEmptyPersona() public {
         vm.prank(project);
         vm.expectRevert(BouncerRegistry.EmptyURI.selector);
-        registry.mintBouncer("", "ipfs://lore", bytes32(0));
+        registry.mintBouncer("", "ipfs://lore", "ipfs://image", bytes32(0));
     }
 
     function test_TransferIsDisabledOnIERC7857Path() public {

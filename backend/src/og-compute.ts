@@ -1,8 +1,8 @@
 import "dotenv/config";
 
-export const OG_ROUTER_BASE = process.env.OG_ROUTER_BASE_URL ?? "https://router-api-testnet.integratenetwork.work/v1";
+export const OG_ROUTER_BASE = process.env.OG_ROUTER_BASE_URL ?? "https://router-api.0g.ai/v1";
 export const OG_ROUTER_KEY = process.env.OG_ROUTER_API_KEY!;
-export const OG_ROUTER_MODEL = process.env.OG_ROUTER_MODEL ?? "qwen/qwen-2.5-7b-instruct";
+export const OG_ROUTER_MODEL = process.env.OG_ROUTER_MODEL ?? "0GM-1.0-35B-A3B";
 
 export type Trace = {
   request_id: string;
@@ -38,7 +38,13 @@ export async function chat(messages: ChatTurn[]): Promise<{ content: string; tra
   const res = await fetchWithRetry(`${OG_ROUTER_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OG_ROUTER_KEY}` },
-    body: JSON.stringify({ model: OG_ROUTER_MODEL, messages, verify_tee: true, max_tokens: 280 }),
+    body: JSON.stringify({
+      model: OG_ROUTER_MODEL,
+      messages,
+      verify_tee: true,
+      max_tokens: 400,
+      chat_template_kwargs: { enable_thinking: false },
+    }),
   });
   if (!res.ok) throw new Error(`router ${res.status}: ${await res.text()}`);
   const body = (await res.json()) as ChatResponse;

@@ -35,6 +35,18 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [history.length]);
 
+  // Bouncer opens the conversation. Fires once when chat starts and history is still empty.
+  const greetingRequested = useRef(false);
+  useEffect(() => {
+    if (!started || !address || history.length > 0 || greetingRequested.current) return;
+    greetingRequested.current = true;
+    setBusy(true);
+    api.beginChat(slug, address)
+      .then((r) => setHistory([{ role: "bouncer", content: r.reply }]))
+      .catch((e) => setErr(friendlyError(e)))
+      .finally(() => setBusy(false));
+  }, [started, address, history.length, slug]);
+
   async function send() {
     if (!input.trim() || busy || !address) return;
     const msg = input.trim();
@@ -79,7 +91,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
       <Shell>
         <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-12 items-center">
           <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-[var(--hanami-paper-soft)]">
-            <Portrait variant={variant} className="w-full h-full" />
+            <Portrait variant={variant} imageUri={campaign.image_uri} className="w-full h-full" />
           </div>
           <div className="text-left">
             <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-2">
@@ -107,7 +119,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
       <Shell>
         <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-12 items-center">
           <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-[var(--hanami-paper-soft)]">
-            <Portrait variant={variant} className="w-full h-full" />
+            <Portrait variant={variant} imageUri={campaign.image_uri} className="w-full h-full" />
           </div>
           <div className="text-left">
             <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-2">
@@ -158,11 +170,19 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
                 </div>
                 <div className="font-mono text-[11px] break-all mb-3">{decision.attestationHash}</div>
                 <a className="text-[12px]" target="_blank" rel="noopener"
-                   href={`https://chainscan-galileo.0g.ai/tx/${decision.decisionTx}`}>
+                   href={`https://chainscan.0g.ai/tx/${decision.decisionTx}`}>
                   {applicant.decision.approved.viewChain} →
                 </a>
               </div>
             )}
+            <div className="mt-8 flex gap-6 text-[12px] tracking-[0.12em] uppercase">
+              <Link href="/gallery" className="border-b border-[var(--hanami-rule)] hover:border-[var(--hanami-ink)] pb-0.5">
+                ← back to gallery
+              </Link>
+              <Link href="/" className="border-b border-[var(--hanami-rule)] hover:border-[var(--hanami-ink)] pb-0.5 text-[var(--hanami-ink-soft)]">
+                home
+              </Link>
+            </div>
           </div>
         </div>
       </Shell>
@@ -174,7 +194,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
       <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-10">
         <aside className="hidden lg:block">
           <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-[var(--hanami-paper-soft)] sticky top-8">
-            <Portrait variant={variant} className="w-full h-full" />
+            <Portrait variant={variant} imageUri={campaign.image_uri} className="w-full h-full" />
           </div>
           <div className="mt-3 text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] text-center">
             №{tokenId} · {bouncerName}
@@ -197,7 +217,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-5 pr-2">
             {history.map((m, i) => (
-              <Turn key={i} role={m.role} content={m.content} variant={variant} />
+              <Turn key={i} role={m.role} content={m.content} variant={variant} imageUri={campaign.image_uri} />
             ))}
             {busy && (
               <div className="text-[var(--hanami-ink-soft)] flex items-center gap-2 pl-0.5">
@@ -232,12 +252,12 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   );
 }
 
-function Turn({ role, content, variant }: { role: "applicant" | "bouncer"; content: string; variant: ReturnType<typeof pickVariant> }) {
+function Turn({ role, content, variant, imageUri }: { role: "applicant" | "bouncer"; content: string; variant: ReturnType<typeof pickVariant>; imageUri: string | null }) {
   if (role === "bouncer") {
     return (
       <div className="flex gap-3">
         <div className="lg:hidden w-9 h-9 shrink-0 overflow-hidden border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)]">
-          <Portrait variant={variant} className="w-full h-full" />
+          <Portrait variant={variant} imageUri={imageUri} className="w-full h-full" />
         </div>
         <div>
           <div className="text-[11px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)] mb-1">

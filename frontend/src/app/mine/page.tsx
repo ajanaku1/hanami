@@ -72,7 +72,7 @@ export default function MinePage() {
                 </div>
                 <div className="px-1 flex flex-wrap gap-4 text-[11px] tracking-[0.08em] uppercase">
                   <Link href={`/c/${c.slug}/admin`}>admin →</Link>
-                  <a target="_blank" rel="noopener" href={`https://chainscan-galileo.0g.ai/address/${c.campaign_address}`}>chain →</a>
+                  <a target="_blank" rel="noopener" href={`https://chainscan.0g.ai/address/${c.campaign_address}`}>chain →</a>
                 </div>
               </div>
             ))}

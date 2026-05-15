@@ -26,15 +26,15 @@ export const create = {
   wlSizeLabel: "Whitelist size",
   wlSizeHelp: "How many approved addresses you'll allow.",
 
-  personaLabel: "Persona",
+  personaLabel: "Bouncer persona",
   personaPlaceholder:
     "Describe the bouncer's personality and what they're looking for in a member. Be specific. Use your own examples. The more particular this is, the harder it is to game.",
   personaHelp:
-    "This is the bouncer's whole inner world. Be as detailed as you like — a paragraph works, a long essay works better. Avoid listing criteria as a checklist; describe the person doing the screening instead.",
+    "Who the bouncer IS — voice, taste, what they care about, how they decide. A paragraph works; a long essay works better. Describe the person doing the screening, not a list of criteria.",
 
-  lorebookLabel: "Lorebook (optional)",
+  lorebookLabel: "About your NFT project",
   lorebookHelp:
-    "A document the bouncer can reference — the project's history, painters, vibe. Markdown or PDF. Goes private; the bouncer reads it but never quotes it back.",
+    "What the bouncer needs to know about your project to screen well — the story, art direction, who the community is for, why this whitelist matters, what makes a fit vs. a flipper. The bouncer reads this privately and uses it to ask sharper questions; it never quotes it back to applicants. Optional but strongly recommended.",
 
   submit: "Mint bouncer",
   submitting: "Minting on 0G…",

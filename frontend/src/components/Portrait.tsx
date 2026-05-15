@@ -45,9 +45,23 @@ export function pickVariant(seed: number): keyof typeof VARIANTS {
   return keys[seed % keys.length] ?? "meiChan";
 }
 
-type Props = { variant?: keyof typeof VARIANTS; className?: string };
+type Props = { variant?: keyof typeof VARIANTS; className?: string; imageUri?: string | null };
 
-export function Portrait({ variant = "meiChan", className }: Props) {
+// Resolve a 0g://rootHash URI into an HTTP URL the browser can fetch via the backend proxy.
+function resolveImage(uri: string | null | undefined): string | null {
+  if (!uri || !uri.startsWith("0g://")) return null;
+  const root = uri.slice(5);
+  if (!/^0x[a-fA-F0-9]{64}$/.test(root)) return null;
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
+  return `${base}/api/image/${root}`;
+}
+
+export function Portrait({ variant = "meiChan", className, imageUri }: Props) {
+  const src = resolveImage(imageUri);
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" className={className} style={{ objectFit: "cover", width: "100%", height: "100%" }} />;
+  }
   const v = VARIANTS[variant];
   const id = `p${variant}`;
   return (

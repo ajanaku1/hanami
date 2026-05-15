@@ -27,6 +27,7 @@ contract BouncerRegistry is ERC721, IERC7857 {
     struct Bouncer {
         string encryptedPersonaURI;
         string lorebookURI;
+        string imageURI;
         bytes32 oracleConditions;
         uint256 repScore;
     }
@@ -42,26 +43,29 @@ contract BouncerRegistry is ERC721, IERC7857 {
     error NotAuthorized();
     error EmptyURI();
 
-    event BouncerMinted(uint256 indexed tokenId, address indexed owner, string personaURI);
+    event BouncerMinted(uint256 indexed tokenId, address indexed owner, string personaURI, string imageURI);
     event ConversationRecorded(uint256 indexed tokenId, bytes32 convoHash);
     event RepIncremented(uint256 indexed tokenId, uint256 newScore);
 
     constructor() ERC721("Hanami Bouncer", "BNCR") {}
 
-    function mintBouncer(string calldata personaURI, string calldata lorebookURI, bytes32 oracleConditions)
-        external
-        returns (uint256 tokenId)
-    {
+    function mintBouncer(
+        string calldata personaURI,
+        string calldata lorebookURI,
+        string calldata imageURI,
+        bytes32 oracleConditions
+    ) external returns (uint256 tokenId) {
         if (bytes(personaURI).length == 0) revert EmptyURI();
         tokenId = ++_nextId;
         _bouncers[tokenId] = Bouncer({
             encryptedPersonaURI: personaURI,
             lorebookURI: lorebookURI,
+            imageURI: imageURI,
             oracleConditions: oracleConditions,
             repScore: 0
         });
         _safeMint(msg.sender, tokenId);
-        emit BouncerMinted(tokenId, msg.sender, personaURI);
+        emit BouncerMinted(tokenId, msg.sender, personaURI, imageURI);
         emit MetadataUpdated(tokenId, keccak256(bytes(personaURI)));
     }
 

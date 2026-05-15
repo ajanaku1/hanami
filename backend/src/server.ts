@@ -4,13 +4,25 @@ import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { z } from "zod";
 import { db } from "./db/index.js";
-import { uploadText, readByRoot } from "./og-storage.js";
-import { bouncerTurn } from "./bouncer.js";
-import { mintBouncer, authorizeBackend, createCampaign, recordDecision, finalizeMerkleRoot, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
+import { generatePortrait } from "./og-image.js";
+import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
+import { recordDecision, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
 import { buildExport } from "./merkle.js";
 import type { ChatTurn } from "./og-compute.js";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
+import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Local PNG cache. 0G Storage is the canonical home (rootHash committed on-chain), but
+// finalityRequired:false uploads aren't immediately downloadable via the indexer — the file
+// has to replicate first. We mirror every generated portrait to disk so the frontend can
+// render it instantly while finalization catches up in the background.
+const IMAGE_CACHE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", ".image-cache");
+mkdirSync(IMAGE_CACHE_DIR, { recursive: true });
+const cachePath = (root: string) => join(IMAGE_CACHE_DIR, `${root}.png`);
 
 const app = new Hono();
 app.use("*", cors());
@@ -23,18 +35,19 @@ app.get("/health", (c) => c.json({
   backend: backendAddress,
 }));
 
-const createBody = z.object({
+// Step 1 of the user-signed mint flow. Backend uploads persona + lorebook to 0G Storage and
+// generates the portrait (0G Compute z-image → 0G Storage). The user then signs three txs
+// directly: mintBouncer, authorizeUsage(backend), createCampaign. Backend never touches the
+// user's iNFT — only reads it after the fact.
+const prepareBody = z.object({
   slug: z.string().min(3).max(64).regex(/^[a-z0-9-]+$/),
-  name: z.string().min(1).max(120),
-  targetChain: z.enum(["ethereum", "base", "arbitrum", "op", "0g"]),
-  wlSizeCap: z.number().int().positive().max(100000),
   persona: z.string().min(50),
   lorebook: z.string().default(""),
   ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
 });
 
-app.post("/api/campaigns", async (c) => {
-  const parsed = createBody.safeParse(await c.req.json());
+app.post("/api/campaigns/prepare", async (c) => {
+  const parsed = prepareBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const body = parsed.data;
 
@@ -44,35 +57,104 @@ app.post("/api/campaigns", async (c) => {
   const personaUp = await uploadText(body.persona);
   const loreUp = body.lorebook ? await uploadText(body.lorebook) : { rootHash: "" };
 
-  const mint = await mintBouncer(`0g://${personaUp.rootHash}`, loreUp.rootHash ? `0g://${loreUp.rootHash}` : "");
-  await authorizeBackend(mint.tokenId, backendAddress);
-  const camp = await createCampaign(mint.tokenId, BigInt(body.wlSizeCap));
+  // Portrait gen + upload. 90s cap so a stuck mainnet storage node can't hang the prepare call.
+  // On failure we still return success with imageURI="" — the user can mint without a portrait,
+  // and the procedural SVG fallback in <Portrait> takes over in the UI.
+  let imageRoot = "";
+  try {
+    const png = await generatePortrait(body.persona);
+    const imgUp = await Promise.race([
+      uploadBlob(png),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("0G Storage upload timed out after 90s")), 90_000),
+      ),
+    ]);
+    imageRoot = imgUp.rootHash;
+    try { writeFileSync(cachePath(imageRoot), png); } catch (e) { console.warn("image cache write failed:", e); }
+  } catch (err) {
+    console.error("portrait pipeline failed, returning imageURI='':", (err as Error).message);
+  }
+
+  return c.json({
+    personaURI: `0g://${personaUp.rootHash}`,
+    lorebookURI: loreUp.rootHash ? `0g://${loreUp.rootHash}` : "",
+    imageURI: imageRoot ? `0g://${imageRoot}` : "",
+    personaRoot: personaUp.rootHash,
+    lorebookRoot: loreUp.rootHash || "",
+    imageRoot: imageRoot || "",
+    backendAddress,
+    registryAddress: BOUNCER_REGISTRY,
+    factoryAddress: CAMPAIGN_FACTORY,
+  });
+});
+
+// Step 2 of the mint flow. After the user has signed all three txs and we have a tokenId +
+// campaign address, the frontend posts here. Backend reads on-chain state to verify the user
+// actually owns the iNFT they're claiming and has authorized us, then persists the campaign row.
+const indexBody = z.object({
+  slug: z.string().min(3).max(64).regex(/^[a-z0-9-]+$/),
+  name: z.string().min(1).max(120),
+  targetChain: z.enum(["ethereum", "base", "arbitrum", "op", "0g"]),
+  wlSizeCap: z.number().int().positive().max(100000),
+  ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  visibility: z.enum(["public", "private"]).default("private"),
+  personaURI: z.string().regex(/^0g:\/\/0x[a-fA-F0-9]{64}$/),
+  lorebookURI: z.string().regex(/^(0g:\/\/0x[a-fA-F0-9]{64})?$/).default(""),
+  imageURI: z.string().regex(/^(0g:\/\/0x[a-fA-F0-9]{64})?$/).default(""),
+  bouncerTokenId: z.string().regex(/^[0-9]+$/),
+  bouncerMintTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  authorizeTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  campaignAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  campaignTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+});
+
+app.post("/api/campaigns/index", async (c) => {
+  const parsed = indexBody.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
+  const body = parsed.data;
+
+  const exists = db.prepare("SELECT 1 FROM campaigns WHERE slug = ?").get(body.slug);
+  if (exists) return c.json({ error: "slug taken" }, 409);
+
+  const tokenId = BigInt(body.bouncerTokenId);
+  const onChainOwner = await readBouncerOwner(tokenId);
+  if (!onChainOwner) return c.json({ error: "bouncer iNFT not found on chain" }, 400);
+  if (onChainOwner.toLowerCase() !== body.ownerAddress.toLowerCase()) {
+    return c.json({ error: "wallet does not own this iNFT on chain" }, 403);
+  }
+  const authorized = await readIsAuthorized(tokenId, backendAddress);
+  if (!authorized) return c.json({ error: "backend not authorized on iNFT" }, 400);
 
   db.prepare(`
-    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, owner_address, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     body.slug,
     body.name,
-    Number(mint.tokenId),
+    Number(tokenId),
     BOUNCER_REGISTRY,
-    camp.campaign,
+    body.campaignAddress,
     body.targetChain,
     body.wlSizeCap,
-    `0g://${personaUp.rootHash}`,
-    loreUp.rootHash ? `0g://${loreUp.rootHash}` : null,
+    body.personaURI,
+    body.lorebookURI || null,
+    body.imageURI || null,
     body.ownerAddress.toLowerCase(),
+    body.visibility,
     Math.floor(Date.now() / 1000),
   );
 
   return c.json({
     slug: body.slug,
-    bouncerTokenId: mint.tokenId.toString(),
-    bouncerMintTx: mint.txHash,
-    campaignAddress: camp.campaign,
-    campaignTx: camp.txHash,
-    personaRoot: personaUp.rootHash,
-    lorebookRoot: loreUp.rootHash || null,
+    bouncerTokenId: body.bouncerTokenId,
+    bouncerMintTx: body.bouncerMintTx,
+    authorizeTx: body.authorizeTx,
+    campaignAddress: body.campaignAddress,
+    campaignTx: body.campaignTx,
+    imageURI: body.imageURI || null,
+    personaRoot: body.personaURI.slice(5),
+    lorebookRoot: body.lorebookURI ? body.lorebookURI.slice(5) : null,
+    visibility: body.visibility,
   });
 });
 
@@ -139,6 +221,48 @@ const turnBody = z.object({
 
 type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null };
 type ApplicantRow = { id: number; decision: string | null };
+
+const beginBody = z.object({
+  walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+});
+
+// Bouncer opens the conversation. Idempotent: if the applicant already has a greeting (turn 0),
+// we return it verbatim. The applicant record is created lazily on first call.
+app.post("/api/campaigns/:slug/begin", async (c) => {
+  const slug = c.req.param("slug");
+  const parsed = beginBody.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
+  const { walletAddress } = parsed.data;
+
+  const campaign = db.prepare("SELECT * FROM campaigns WHERE slug = ?").get(slug) as CampaignRow | undefined;
+  if (!campaign) return c.json({ error: "campaign not found" }, 404);
+
+  let applicant = db.prepare("SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?")
+    .get(slug, walletAddress.toLowerCase()) as ApplicantRow | undefined;
+
+  if (applicant?.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
+
+  if (!applicant) {
+    const info = db.prepare("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)")
+      .run(slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000));
+    applicant = { id: Number(info.lastInsertRowid), decision: null };
+  }
+
+  const existing = db.prepare("SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'")
+    .get(applicant.id) as { content: string } | undefined;
+  if (existing) return c.json({ reply: existing.content });
+
+  const personaText = await fetchText(campaign.persona_uri);
+  const lorebookText = campaign.lorebook_uri ? await fetchText(campaign.lorebook_uri) : "";
+
+  const turn = await bouncerGreeting(personaText, lorebookText);
+
+  db.prepare(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
+              VALUES (?, 0, 'bouncer', ?, ?, ?, 1, ?)`)
+    .run(applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000));
+
+  return c.json({ reply: turn.reply });
+});
 
 app.post("/api/campaigns/:slug/turns", async (c) => {
   const slug = c.req.param("slug");
@@ -281,6 +405,32 @@ app.get("/api/campaigns/:slug/admin", (c) => {
     SUM(CASE WHEN decision IS NULL THEN 1 ELSE 0 END) AS pending
     FROM applicants WHERE campaign_slug = ?`).get(slug);
   return c.json({ campaign, applicants, counts });
+});
+
+// Serves bouncer portraits. The 0G Storage root hash is the canonical content address pinned
+// on-chain at mint. We check the local cache first (populated when we minted) so frontends
+// render instantly even before 0G Storage finalization completes; on a cache miss we ask the
+// indexer to fetch from the network. Either way bytes are content-addressed and immutable.
+app.get("/api/image/:root", async (c) => {
+  const root = c.req.param("root");
+  if (!/^0x[a-fA-F0-9]{64}$/.test(root)) return c.json({ error: "invalid root hash" }, 400);
+
+  const local = cachePath(root);
+  if (existsSync(local)) {
+    const bytes = readFileSync(local);
+    return new Response(new Uint8Array(bytes), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+  }
+  try {
+    const bytes = await readByRoot(root);
+    try { writeFileSync(local, bytes); } catch { /* best-effort cache fill */ }
+    return new Response(new Uint8Array(bytes), {
+      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 502);
+  }
 });
 
 async function fetchText(uri: string): Promise<string> {

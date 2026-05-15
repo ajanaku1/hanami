@@ -8,6 +8,8 @@ import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
+import { ShareBar } from "@/components/ShareBar";
+import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
 
 type Params = { slug: string };
@@ -51,9 +53,16 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
     <Shell>
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
         <aside className="lg:sticky lg:top-12 lg:self-start">
-          <BouncerCard tokenId={campaign.bouncer_token_id} name={campaign.name.split(" ")[0]} subtitle={`token №${campaign.bouncer_token_id}`} sealRoot={campaign.persona_uri} />
+          <BouncerCard tokenId={campaign.bouncer_token_id} name={campaign.name.split(" ")[0]} subtitle={`token №${campaign.bouncer_token_id}`} sealRoot={campaign.persona_uri} imageUri={campaign.image_uri} />
           <div className="mt-5">
             <VisibilityToggle slug={campaign.slug} ownerAddress={campaign.owner_address} current={campaign.visibility} />
+          </div>
+          <div className="mt-5">
+            <ShareBar
+              path={`/c/${campaign.slug}`}
+              shareText={`Apply to ${campaign.name} — an AI bouncer on 0G`}
+              label="applicant link"
+            />
           </div>
           <dl className="mt-6 text-xs space-y-1.5 font-mono">
             <Row k="campaign" v={campaign.campaign_address} kind="address" />
@@ -103,7 +112,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
                     </td>
                     <td className="py-2.5 font-mono text-[11px]">
                       {a.decision_tx
-                        ? <a target="_blank" rel="noopener" href={`https://chainscan-galileo.0g.ai/tx/${a.decision_tx}`}>{a.decision_tx.slice(0, 10)}…</a>
+                        ? <a target="_blank" rel="noopener" href={`https://chainscan.0g.ai/tx/${a.decision_tx}`}>{a.decision_tx.slice(0, 10)}…</a>
                         : "—"}
                     </td>
                   </tr>
@@ -140,7 +149,7 @@ function Counter({ n, label, accent }: { n: number; label: string; accent?: "mos
 
 function Row({ k, v, kind }: { k: string; v: string; kind?: "tx" | "address" }) {
   const display = v.length > 30 ? `${v.slice(0, 14)}…${v.slice(-8)}` : v;
-  const href = kind ? `https://chainscan-galileo.0g.ai/${kind}/${v}` : null;
+  const href = kind ? `https://chainscan.0g.ai/${kind}/${v}` : null;
   return (
     <div className="grid grid-cols-[70px_1fr] gap-3">
       <dt className="text-[10px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)] self-center">{k}</dt>
@@ -153,11 +162,17 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <PetalsCanvas />
-      <header className="relative z-10 flex justify-between items-center px-10 py-5">
-        <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-          <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-        </Link>
+      <header className="relative z-10 flex justify-between items-start px-10 py-5">
+        <div className="flex flex-col gap-1.5">
+          <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
+            <span className="font-serif text-[24px] tracking-wider">Hanami</span>
+            <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
+          </Link>
+          <Link href="/" className="text-[11px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>
+            ← back to home
+          </Link>
+        </div>
+        <ConnectButton compact />
       </header>
       <main className="relative z-10 max-w-[1240px] mx-auto px-8 py-10">{children}</main>
     </>

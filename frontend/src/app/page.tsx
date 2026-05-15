@@ -17,7 +17,7 @@ export default function Home() {
         <nav className="flex items-center gap-4 sm:gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
           <Link href="/create" className="border-none">Mint</Link>
           <Link href="/gallery" className="border-none">Gallery</Link>
-          <a className="border-none hidden sm:inline" href="https://chainscan-galileo.0g.ai/address/0xA4D38fcB1C8aD17920bEF7AE97E2b8D5E72F68b7" target="_blank" rel="noopener">Contract</a>
+          <a className="border-none hidden sm:inline" href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">Contract</a>
         </nav>
       </header>
 
@@ -156,7 +156,7 @@ export default function Home() {
         <span>
           Built on 0G — Compute · Storage · Chain · ERC-7857
         </span>
-        <a href="https://chainscan-galileo.0g.ai/address/0xA4D38fcB1C8aD17920bEF7AE97E2b8D5E72F68b7" target="_blank" rel="noopener">
+        <a href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">
           Registry on Chainscan →
         </a>
       </footer>

@@ -11,7 +11,7 @@ remappings = [
 ]
 
 [rpc_endpoints]
-galileo = "${GALILEO_RPC_URL}"
+zerog = "${OG_RPC_URL}"
 
 [etherscan]
-galileo = { key = "${CHAINSCAN_API_KEY}", url = "${CHAINSCAN_API_URL}", chain = 16602 }
+zerog = { key = "${CHAINSCAN_API_KEY}", url = "${CHAINSCAN_API_URL}", chain = 16661 }

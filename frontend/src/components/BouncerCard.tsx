@@ -9,11 +9,12 @@ type Props = {
   name: string;
   subtitle?: string;
   sealRoot?: string;
+  imageUri?: string | null;
   className?: string;
   forceFlip?: boolean;
 };
 
-export function BouncerCard({ tokenId, name, subtitle, sealRoot, className, forceFlip = false }: Props) {
+export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, className, forceFlip = false }: Props) {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const flipped = forceFlip || hovered || clicked;
@@ -45,7 +46,7 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, className, forc
             <span className="font-mono">№{tokenId}</span>
           </div>
           <div className="flex-1 overflow-hidden">
-            <Portrait variant={variant} className="w-full h-full" />
+            <Portrait variant={variant} imageUri={imageUri} className="w-full h-full" />
           </div>
           <div className="flex justify-between items-baseline px-4 py-3 border-t border-[var(--hanami-rule)]">
             <span className="font-serif text-[20px] font-medium">{name}</span>

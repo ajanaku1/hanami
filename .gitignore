@@ -35,10 +35,11 @@ build/
 coverage/
 .nyc_output/
 
-# Private build inputs
+# Local
 goal.md
 prompt.md
 .claude/
+backend/.image-cache/
 *.db
 *.db-wal
 *.db-shm

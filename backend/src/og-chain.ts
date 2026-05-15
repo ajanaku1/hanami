@@ -14,30 +14,53 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import type { Trace } from "./og-compute.js";
 
-export const galileo = defineChain({
-  id: 16602,
-  name: "0G-Galileo-Testnet",
+export const zeroG = defineChain({
+  id: 16661,
+  name: "0G",
   nativeCurrency: { name: "0G", symbol: "OG", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.GALILEO_RPC_URL ?? "https://evmrpc-testnet.0g.ai"] } },
-  blockExplorers: { default: { name: "Chainscan", url: "https://chainscan-galileo.0g.ai" } },
+  rpcUrls: { default: { http: [process.env.OG_RPC_URL ?? "https://evmrpc.0g.ai"] } },
+  blockExplorers: { default: { name: "Chainscan", url: "https://chainscan.0g.ai" } },
 });
 
 const account = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex);
 
-export const wallet = createWalletClient({ account, chain: galileo, transport: http() });
-export const publicClient = createPublicClient({ chain: galileo, transport: http() });
+export const wallet = createWalletClient({ account, chain: zeroG, transport: http() });
+export const publicClient = createPublicClient({ chain: zeroG, transport: http() });
 
 export const BOUNCER_REGISTRY = process.env.BOUNCER_REGISTRY_ADDRESS as Address;
 export const CAMPAIGN_FACTORY = process.env.CAMPAIGN_FACTORY_ADDRESS as Address;
 
 const registryAbi = parseAbi([
-  "function mintBouncer(string personaURI, string lorebookURI, bytes32 oracleConditions) returns (uint256)",
+  "function mintBouncer(string personaURI, string lorebookURI, string imageURI, bytes32 oracleConditions) returns (uint256)",
   "function authorizeUsage(uint256 tokenId, address executor, bytes permissions)",
   "function recordConversation(uint256 tokenId, bytes32 convoHash)",
   "function incrementRep(uint256 tokenId) returns (uint256)",
   "function ownerOf(uint256 tokenId) view returns (address)",
-  "event BouncerMinted(uint256 indexed tokenId, address indexed owner, string personaURI)",
+  "function isAuthorized(uint256 tokenId, address executor) view returns (bool)",
+  "event BouncerMinted(uint256 indexed tokenId, address indexed owner, string personaURI, string imageURI)",
 ]);
+
+// Read helpers used by the server.ts /index endpoint to verify the user actually owns the iNFT
+// they're claiming and has authorized the backend, before we trust their indexing payload.
+export async function readBouncerOwner(tokenId: bigint): Promise<Address | null> {
+  try {
+    return await publicClient.readContract({
+      address: BOUNCER_REGISTRY,
+      abi: registryAbi,
+      functionName: "ownerOf",
+      args: [tokenId],
+    });
+  } catch { return null; }
+}
+
+export async function readIsAuthorized(tokenId: bigint, executor: Address): Promise<boolean> {
+  return publicClient.readContract({
+    address: BOUNCER_REGISTRY,
+    abi: registryAbi,
+    functionName: "isAuthorized",
+    args: [tokenId, executor],
+  });
+}
 
 const factoryAbi = parseAbi([
   "function createCampaign(uint256 bouncerTokenId, uint256 wlSizeCap) returns (address)",
@@ -61,12 +84,12 @@ export function attestationHashFromTrace(trace: Trace): Hex {
   );
 }
 
-export async function mintBouncer(personaURI: string, lorebookURI: string): Promise<{ txHash: Hex; tokenId: bigint }> {
+export async function mintBouncer(personaURI: string, lorebookURI: string, imageURI: string): Promise<{ txHash: Hex; tokenId: bigint }> {
   const txHash = await wallet.writeContract({
     address: BOUNCER_REGISTRY,
     abi: registryAbi,
     functionName: "mintBouncer",
-    args: [personaURI, lorebookURI, "0x0000000000000000000000000000000000000000000000000000000000000000"],
+    args: [personaURI, lorebookURI, imageURI, "0x0000000000000000000000000000000000000000000000000000000000000000"],
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   const [minted] = parseEventLogs({ abi: registryAbi, eventName: "BouncerMinted", logs: receipt.logs });

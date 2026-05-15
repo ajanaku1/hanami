@@ -16,7 +16,7 @@ const lore = await uploadText(lorebookText);
 console.log("   rootHash:", lore.rootHash);
 
 console.log("3. minting bouncer iNFT on Galileo...");
-const mint = await mintBouncer(`0g://${persona.rootHash}`, `0g://${lore.rootHash}`);
+const mint = await mintBouncer(`0g://${persona.rootHash}`, `0g://${lore.rootHash}`, "");
 console.log("   tx:", mint.txHash, "tokenId:", mint.tokenId.toString());
 
 const backend = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex).address;

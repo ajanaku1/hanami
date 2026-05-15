@@ -109,7 +109,7 @@ export function MerkleExport({ slug, ownerAddress, finalized, alreadyOnChain }: 
 
       {finalizedTx && (
         <div className="text-[11px] font-mono">
-          finalize tx: <a target="_blank" rel="noopener" href={`https://chainscan-galileo.0g.ai/tx/${finalizedTx}`}>{finalizedTx.slice(0, 12)}…</a>
+          finalize tx: <a target="_blank" rel="noopener" href={`https://chainscan.0g.ai/tx/${finalizedTx}`}>{finalizedTx.slice(0, 12)}…</a>
         </div>
       )}
       {err && <p className="text-[var(--hanami-stamp)] text-sm font-mono">{err}</p>}

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
   wl_size_cap       INTEGER NOT NULL,
   persona_uri       TEXT NOT NULL,        -- ipfs://CID (canonical)
   lorebook_uri      TEXT,                 -- ipfs://CID (nullable)
+  image_uri         TEXT,                 -- 0g://rootHash for the bouncer portrait (nullable)
   owner_address     TEXT NOT NULL,        -- project wallet
   created_at        INTEGER NOT NULL,     -- unix seconds
   finalized_at      INTEGER,              -- set when Merkle root published
