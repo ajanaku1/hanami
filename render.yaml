@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: hanami-backend
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: OG_ROUTER_API_KEY
+        sync: false
+      - key: OG_ROUTER_BASE_URL
+        value: https://router-api.0g.ai/v1
+      - key: OG_ROUTER_MODEL
+        value: 0GM-1.0-35B-A3B
+      - key: OG_ROUTER_IMAGE_MODEL
+        value: z-image
+      - key: OG_RPC_URL
+        value: https://evmrpc.0g.ai
+      - key: OG_INDEXER_RPC
+        value: https://indexer-storage-turbo.0g.ai
+      - key: DEPLOYER_ADDRESS
+        sync: false
+      - key: DEPLOYER_PRIVATE_KEY
+        sync: false
+      - key: CHAINSCAN_API_URL
+        value: https://chainscan.0g.ai/open/api
+      - key: CHAINSCAN_BROWSER_URL
+        value: https://chainscan.0g.ai
+      - key: BOUNCER_REGISTRY_ADDRESS
+        value: "0x764883319e51e46F683aB54D93F26bcBb74A7030"
+      - key: CAMPAIGN_FACTORY_ADDRESS
+        value: "0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4"
