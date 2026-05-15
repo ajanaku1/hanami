@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { z } from "zod";
-import { db } from "./db/index.js";
+import { get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
@@ -51,7 +51,7 @@ app.post("/api/campaigns/prepare", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const body = parsed.data;
 
-  const exists = db.prepare("SELECT 1 FROM campaigns WHERE slug = ?").get(body.slug);
+  const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
 
   const personaUp = await uploadText(body.persona);
@@ -113,7 +113,7 @@ app.post("/api/campaigns/index", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const body = parsed.data;
 
-  const exists = db.prepare("SELECT 1 FROM campaigns WHERE slug = ?").get(body.slug);
+  const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
 
   const tokenId = BigInt(body.bouncerTokenId);
@@ -125,10 +125,10 @@ app.post("/api/campaigns/index", async (c) => {
   const authorized = await readIsAuthorized(tokenId, backendAddress);
   if (!authorized) return c.json({ error: "backend not authorized on iNFT" }, 400);
 
-  db.prepare(`
+  await run(`
     INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     body.slug,
     body.name,
     Number(tokenId),
@@ -142,7 +142,7 @@ app.post("/api/campaigns/index", async (c) => {
     body.ownerAddress.toLowerCase(),
     body.visibility,
     Math.floor(Date.now() / 1000),
-  );
+  ]);
 
   return c.json({
     slug: body.slug,
@@ -166,22 +166,22 @@ const campaignWithCountsSql = `
   FROM campaigns c
 `;
 
-app.get("/api/campaigns/:slug", (c) => {
+app.get("/api/campaigns/:slug", async (c) => {
   const slug = c.req.param("slug");
-  const row = db.prepare(`${campaignWithCountsSql} WHERE c.slug = ?`).get(slug);
+  const row = await get(`${campaignWithCountsSql} WHERE c.slug = ?`, [slug]);
   if (!row) return c.json({ error: "not found" }, 404);
   return c.json(row);
 });
 
-app.get("/api/campaigns", (c) => {
+app.get("/api/campaigns", async (c) => {
   const owner = c.req.query("owner");
   if (owner) {
     if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return c.json({ error: "invalid owner address" }, 400);
-    const rows = db.prepare(`${campaignWithCountsSql} WHERE c.owner_address = ? ORDER BY c.created_at DESC`).all(owner.toLowerCase());
+    const rows = await all(`${campaignWithCountsSql} WHERE c.owner_address = ? ORDER BY c.created_at DESC`, [owner.toLowerCase()]);
     return c.json({ campaigns: rows });
   }
   // public listing — every bouncer is visible; the apply/chat capability is gated per-card by visibility
-  const rows = db.prepare(`${campaignWithCountsSql} ORDER BY c.created_at DESC`).all();
+  const rows = await all(`${campaignWithCountsSql} ORDER BY c.created_at DESC`);
   return c.json({ campaigns: rows });
 });
 
@@ -198,7 +198,7 @@ app.post("/api/campaigns/:slug/visibility", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const { visibility, signature, caller, nonce } = parsed.data;
 
-  const row = db.prepare("SELECT owner_address FROM campaigns WHERE slug = ?").get(slug) as { owner_address: string } | undefined;
+  const row = await get<{ owner_address: string }>("SELECT owner_address FROM campaigns WHERE slug = ?", [slug]);
   if (!row) return c.json({ error: "not found" }, 404);
   if (row.owner_address.toLowerCase() !== caller.toLowerCase()) return c.json({ error: "not owner" }, 403);
 
@@ -210,7 +210,7 @@ app.post("/api/campaigns/:slug/visibility", async (c) => {
   const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: signature as `0x${string}` });
   if (!ok) return c.json({ error: "signature did not verify" }, 401);
 
-  db.prepare("UPDATE campaigns SET visibility = ? WHERE slug = ?").run(visibility, slug);
+  await run("UPDATE campaigns SET visibility = ? WHERE slug = ?", [visibility, slug]);
   return c.json({ slug, visibility });
 });
 
@@ -234,22 +234,26 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const { walletAddress } = parsed.data;
 
-  const campaign = db.prepare("SELECT * FROM campaigns WHERE slug = ?").get(slug) as CampaignRow | undefined;
+  const campaign = await get<CampaignRow>("SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "campaign not found" }, 404);
 
-  let applicant = db.prepare("SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?")
-    .get(slug, walletAddress.toLowerCase()) as ApplicantRow | undefined;
+  let applicant = await get<ApplicantRow>(
+    "SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
+    [slug, walletAddress.toLowerCase()],
+  );
 
   if (applicant?.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
 
   if (!applicant) {
-    const info = db.prepare("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)")
-      .run(slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000));
+    const info = await run("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)",
+      [slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000)]);
     applicant = { id: Number(info.lastInsertRowid), decision: null };
   }
 
-  const existing = db.prepare("SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'")
-    .get(applicant.id) as { content: string } | undefined;
+  const existing = await get<{ content: string }>(
+    "SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'",
+    [applicant.id],
+  );
   if (existing) return c.json({ reply: existing.content });
 
   const personaText = await fetchText(campaign.persona_uri);
@@ -257,9 +261,9 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
 
   const turn = await bouncerGreeting(personaText, lorebookText);
 
-  db.prepare(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
-              VALUES (?, 0, 'bouncer', ?, ?, ?, 1, ?)`)
-    .run(applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000));
+  await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
+             VALUES (?, 0, 'bouncer', ?, ?, ?, 1, ?)`,
+    [applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000)]);
 
   return c.json({ reply: turn.reply });
 });
@@ -270,30 +274,35 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const { walletAddress, message } = parsed.data;
 
-  const campaign = db.prepare("SELECT * FROM campaigns WHERE slug = ?").get(slug) as CampaignRow | undefined;
+  const campaign = await get<CampaignRow>("SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "campaign not found" }, 404);
 
-  let applicant = db.prepare("SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?")
-    .get(slug, walletAddress.toLowerCase()) as ApplicantRow | undefined;
+  let applicant = await get<ApplicantRow>(
+    "SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
+    [slug, walletAddress.toLowerCase()],
+  );
 
   if (applicant?.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
 
   if (!applicant) {
-    const info = db.prepare("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)")
-      .run(slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000));
+    const info = await run("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)",
+      [slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000)]);
     applicant = { id: Number(info.lastInsertRowid), decision: null };
   }
 
-  const turnIndex = Number(db.prepare("SELECT COALESCE(MAX(turn_index), -1) + 1 AS next FROM turns WHERE applicant_id = ?")
-    .get(applicant.id) as { next: number }).valueOf() as unknown as number;
-  const userIndex = (db.prepare("SELECT COALESCE(MAX(turn_index), -1) + 1 AS next FROM turns WHERE applicant_id = ?")
-    .get(applicant.id) as { next: number }).next;
+  const nextRow = await get<{ next: number }>(
+    "SELECT COALESCE(MAX(turn_index), -1) + 1 AS next FROM turns WHERE applicant_id = ?",
+    [applicant.id],
+  );
+  const userIndex = Number(nextRow?.next ?? 0);
 
-  db.prepare("INSERT INTO turns (applicant_id, turn_index, role, content, created_at) VALUES (?, ?, 'applicant', ?, ?)")
-    .run(applicant.id, userIndex, message, Math.floor(Date.now() / 1000));
+  await run("INSERT INTO turns (applicant_id, turn_index, role, content, created_at) VALUES (?, ?, 'applicant', ?, ?)",
+    [applicant.id, userIndex, message, Math.floor(Date.now() / 1000)]);
 
-  const history = db.prepare("SELECT role, content FROM turns WHERE applicant_id = ? ORDER BY turn_index ASC")
-    .all(applicant.id) as { role: "applicant" | "bouncer"; content: string }[];
+  const history = await all<{ role: "applicant" | "bouncer"; content: string }>(
+    "SELECT role, content FROM turns WHERE applicant_id = ? ORDER BY turn_index ASC",
+    [applicant.id],
+  );
   const chat: ChatTurn[] = history.map((t) => ({
     role: t.role === "applicant" ? "user" : "assistant",
     content: t.content,
@@ -305,9 +314,9 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
   const turn = await bouncerTurn({ persona: personaText, lorebook: lorebookText, history: chat });
 
   const bouncerIndex = userIndex + 1;
-  db.prepare(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
-              VALUES (?, ?, 'bouncer', ?, ?, ?, 1, ?)`)
-    .run(applicant.id, bouncerIndex, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000));
+  await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
+             VALUES (?, ?, 'bouncer', ?, ?, ?, 1, ?)`,
+    [applicant.id, bouncerIndex, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000)]);
 
   if (!turn.decision) return c.json({ reply: turn.reply, decision: null });
 
@@ -320,16 +329,16 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     turn.trace,
   );
 
-  db.prepare(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, attestation_hash = ?, finished_at = ?
-              WHERE id = ?`)
-    .run(
+  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, attestation_hash = ?, finished_at = ?
+             WHERE id = ?`,
+    [
       turn.decision.kind === "approve" ? "approved" : "rejected",
       recorded.txHash,
       `0g://${reasoningUp.rootHash}`,
       recorded.attestationHash,
       Math.floor(Date.now() / 1000),
       applicant.id,
-    );
+    ]);
 
   return c.json({
     reply: turn.reply,
@@ -340,12 +349,14 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
   });
 });
 
-app.get("/api/campaigns/:slug/export", (c) => {
+app.get("/api/campaigns/:slug/export", async (c) => {
   const slug = c.req.param("slug");
-  const campaign = db.prepare("SELECT slug, merkle_root, finalized_at FROM campaigns WHERE slug = ?").get(slug) as { slug: string; merkle_root: string | null; finalized_at: number | null } | undefined;
+  const campaign = await get<{ slug: string; merkle_root: string | null; finalized_at: number | null }>(
+    "SELECT slug, merkle_root, finalized_at FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "not found" }, 404);
 
-  const approved = (db.prepare("SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC").all(slug) as Array<{ wallet_address: string }>)
+  const approved = (await all<{ wallet_address: string }>(
+    "SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC", [slug]))
     .map((r) => r.wallet_address as `0x${string}`);
   const exported = buildExport(approved);
   return c.json({
@@ -368,8 +379,8 @@ app.post("/api/campaigns/:slug/finalize", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const { signature, caller, nonce } = parsed.data;
 
-  const row = db.prepare("SELECT owner_address, campaign_address, finalized_at FROM campaigns WHERE slug = ?")
-    .get(slug) as { owner_address: string; campaign_address: string; finalized_at: number | null } | undefined;
+  const row = await get<{ owner_address: string; campaign_address: string; finalized_at: number | null }>(
+    "SELECT owner_address, campaign_address, finalized_at FROM campaigns WHERE slug = ?", [slug]);
   if (!row) return c.json({ error: "not found" }, 404);
   if (row.finalized_at !== null) return c.json({ error: "already finalized" }, 409);
   if (row.owner_address.toLowerCase() !== caller.toLowerCase()) return c.json({ error: "not owner" }, 403);
@@ -380,30 +391,31 @@ app.post("/api/campaigns/:slug/finalize", async (c) => {
   const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: signature as `0x${string}` });
   if (!ok) return c.json({ error: "signature did not verify" }, 401);
 
-  const approved = (db.prepare("SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC").all(slug) as Array<{ wallet_address: string }>)
+  const approved = (await all<{ wallet_address: string }>(
+    "SELECT wallet_address FROM applicants WHERE campaign_slug = ? AND decision = 'approved' ORDER BY id ASC", [slug]))
     .map((r) => r.wallet_address as `0x${string}`);
   if (approved.length === 0) return c.json({ error: "no approved applicants yet" }, 400);
 
   const { root } = buildExport(approved);
   const txHash = await finalizeMerkleRoot(row.campaign_address as `0x${string}`, root);
 
-  db.prepare("UPDATE campaigns SET merkle_root = ?, finalized_at = ? WHERE slug = ?")
-    .run(root, Math.floor(Date.now() / 1000), slug);
+  await run("UPDATE campaigns SET merkle_root = ?, finalized_at = ? WHERE slug = ?",
+    [root, Math.floor(Date.now() / 1000), slug]);
 
   return c.json({ slug, root, txHash });
 });
 
-app.get("/api/campaigns/:slug/admin", (c) => {
+app.get("/api/campaigns/:slug/admin", async (c) => {
   const slug = c.req.param("slug");
-  const campaign = db.prepare("SELECT * FROM campaigns WHERE slug = ?").get(slug);
+  const campaign = await get("SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "not found" }, 404);
-  const applicants = db.prepare(`SELECT wallet_address, decision, decision_tx, attestation_hash, finished_at
-                                 FROM applicants WHERE campaign_slug = ? ORDER BY started_at DESC`).all(slug);
-  const counts = db.prepare(`SELECT
+  const applicants = await all(`SELECT wallet_address, decision, decision_tx, attestation_hash, finished_at
+                                FROM applicants WHERE campaign_slug = ? ORDER BY started_at DESC`, [slug]);
+  const counts = await get(`SELECT
     SUM(CASE WHEN decision='approved' THEN 1 ELSE 0 END) AS approved,
     SUM(CASE WHEN decision='rejected' THEN 1 ELSE 0 END) AS rejected,
     SUM(CASE WHEN decision IS NULL THEN 1 ELSE 0 END) AS pending
-    FROM applicants WHERE campaign_slug = ?`).get(slug);
+    FROM applicants WHERE campaign_slug = ?`, [slug]);
   return c.json({ campaign, applicants, counts });
 });
 
@@ -457,6 +469,8 @@ async function fetchText(uri: string): Promise<string> {
   const root = uri.replace("0g://", "");
   return (await readByRoot(root)).toString("utf8");
 }
+
+await initDb();
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port });

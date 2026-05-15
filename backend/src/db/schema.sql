@@ -1,10 +1,8 @@
 -- Hanami backend index/cache.
--- IPFS (today) / 0G Storage (when SDK catches up) is canonical for persona, lorebook, transcripts.
+-- 0G Storage is canonical for persona, lorebook, portrait, transcripts.
 -- 0G Chain is canonical for bouncer iNFT, decision log, attestation hashes.
 -- This DB is a read-fast cache so /admin doesn't round-trip Storage or RPC per render.
-
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
+-- Hosted on Turso (libSQL) so it survives Render free-tier container restarts.
 
 CREATE TABLE IF NOT EXISTS campaigns (
   slug              TEXT PRIMARY KEY,
