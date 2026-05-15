@@ -20,7 +20,7 @@ The MVP ships with two demo bouncers. Both their persona documents, lorebooks, a
 ## Live demo
 
 - **App**: https://hanami-hazel.vercel.app
-- **Backend**: https://hanami-backend-production-2c9b.up.railway.app/health
+- **Backend**: https://hanami-backend-ugak.onrender.com/health
 
 ## Live on 0G mainnet · chain 16661
 
