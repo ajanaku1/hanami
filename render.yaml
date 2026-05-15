@@ -36,3 +36,5 @@ services:
         value: "0x764883319e51e46F683aB54D93F26bcBb74A7030"
       - key: CAMPAIGN_FACTORY_ADDRESS
         value: "0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4"
+      - key: ADMIN_SECRET
+        sync: false

@@ -407,6 +407,25 @@ app.get("/api/campaigns/:slug/admin", (c) => {
   return c.json({ campaign, applicants, counts });
 });
 
+// Admin-only: backfill the image cache. Used by the seed-bouncer script when it ran
+// locally and generated a portrait whose bytes never reached the deployed backend's disk.
+// Auth: shared secret via X-Admin-Secret header. Off unless ADMIN_SECRET is set in env.
+const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
+app.post("/admin/cache-image", async (c) => {
+  if (!ADMIN_SECRET || c.req.header("X-Admin-Secret") !== ADMIN_SECRET) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const body = await c.req.json().catch(() => null) as { rootHash?: string; b64?: string } | null;
+  if (!body?.rootHash || !body.b64) return c.json({ error: "rootHash and b64 required" }, 400);
+  if (!/^0x[a-fA-F0-9]{64}$/.test(body.rootHash)) return c.json({ error: "invalid root hash" }, 400);
+  try {
+    writeFileSync(cachePath(body.rootHash), Buffer.from(body.b64, "base64"));
+    return c.json({ cached: body.rootHash });
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 500);
+  }
+});
+
 // Serves bouncer portraits. The 0G Storage root hash is the canonical content address pinned
 // on-chain at mint. We check the local cache first (populated when we minted) so frontends
 // render instantly even before 0G Storage finalization completes; on a cache miss we ask the
