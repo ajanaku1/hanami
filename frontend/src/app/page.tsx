@@ -39,8 +39,8 @@ export default function Home() {
             <Link href="/create" className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors" style={{ borderBottom: "none" }}>
               Mint a bouncer
             </Link>
-            <Link href="/c/sakura-society" className="text-[13px] text-[var(--hanami-ink-soft)]">
-              Talk to Mei-chan, token №3 →
+            <Link href="/c/sakura-society-v2" className="text-[13px] text-[var(--hanami-ink-soft)]">
+              Talk to Mei-chan →
             </Link>
           </div>
         </div>

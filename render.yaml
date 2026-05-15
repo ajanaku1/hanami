@@ -8,7 +8,10 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
-    autoDeploy: true
+    # Disabled — Render free tier filesystem is ephemeral, so every redeploy wipes the
+    # SQLite index DB. We deploy manually from the Render dashboard when we want to push
+    # backend changes.
+    autoDeploy: false
     envVars:
       - key: NODE_VERSION
         value: "22"
