@@ -231,7 +231,7 @@ You can read the full state without signing anything:
 - `https://chainscan.0g.ai/address/0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4`: every campaign deployed by the factory.
 - Each `Campaign.recordDecision` tx on Chainscan shows the `attestationHash` parameter. That is the TEE receipt.
 
-### Known gotchas (be honest about them)
+### Known gotchas
 
 - **0G Compute Router API keys are wallet-bound.** A key you generated while connected to wallet A won't see funds you deposited from wallet B. Create the key while connected with the wallet that funds the Router escrow.
 - **Storage uploads use `finalityRequired:false`.** This is documented in `backend/src/og-storage.ts`. The file is pinned immediately; it becomes downloadable through the indexer a few minutes later, after the network finalizes. The local PNG cache in `backend/.image-cache/` papers over this for portraits the same node generated. If a fresh machine tries to fetch a portrait root for the first time before finalization, it can get a 502 from the indexer. Retry in a minute.
@@ -239,7 +239,7 @@ You can read the full state without signing anything:
 
 ### Adversarial behavior
 
-The four scenarios from goal.md §C are implemented in `backend/scripts/adversarial.ts`:
+These four scenarios are implemented in `backend/scripts/adversarial.ts`:
 
 - Thoughtful, specific applicant → approve. Passes.
 - Generic enthusiasm / hype words only → reject. Passes.
@@ -247,13 +247,6 @@ The four scenarios from goal.md §C are implemented in `backend/scripts/adversar
 - Retry after rejection → blocked at the API layer and at the `Campaign` contract layer.
 
 Latest full run: 6/8. The two misses are documented in the script output. Neither is a security regression.
-
-### Submission artifacts
-
-- Mainnet contract addresses: above.
-- Public GitHub repo: this URL.
-- 3-minute demo video: linked in the submission form.
-- Public X post: linked in the submission form, tagging `@0G_labs @0g_CN @0g_Eco @HackQuest_` with `#0GHackathon #BuildOn0G`.
 
 ---
 

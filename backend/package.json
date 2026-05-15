@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
     "build": "tsc",
     "hello:inference": "tsx scripts/hello-inference.ts",
     "hello:storage": "tsx scripts/hello-storage.ts"
