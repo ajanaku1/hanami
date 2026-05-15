@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { admin } from "@/copy";
 import { api, type AdminPayload } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
@@ -164,8 +165,9 @@ function Shell({ children }: { children: React.ReactNode }) {
       <PetalsCanvas />
       <header className="relative z-10 flex justify-between items-start px-10 py-5">
         <div className="flex flex-col gap-1.5">
-          <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
-            <span className="font-serif text-[24px] tracking-wider">Hanami</span>
+          <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
+          <Logo size={28} />
+          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
             <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
           </Link>
           <Link href="/" className="text-[11px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>

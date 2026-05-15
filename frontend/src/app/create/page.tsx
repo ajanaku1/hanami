@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
 import { zeroG } from "@/lib/wagmi";
 import type { Address, Hex } from "viem";
@@ -383,7 +384,8 @@ function Header() {
   return (
     <header className="relative z-50 flex justify-between items-start px-10 py-5">
       <div className="flex flex-col items-start">
-        <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
+        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
+          <Logo size={28} />
           <span className="font-serif text-[24px] tracking-wider">Hanami</span>
           <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
         </Link>

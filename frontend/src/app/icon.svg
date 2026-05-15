@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Hanami sakura mark. Five notched petals around an indigo center. -->
+  <defs>
+    <path id="petal" d="M 0 0 Q -4.5 -6 -6 -11 Q -4.5 -14 -1.5 -12 Q 0 -10 1.5 -12 Q 4.5 -14 6 -11 Q 4.5 -6 0 0 Z"/>
+  </defs>
+  <g transform="translate(16 16)" fill="#d4486b">
+    <use href="#petal" transform="rotate(0)"/>
+    <use href="#petal" transform="rotate(72)"/>
+    <use href="#petal" transform="rotate(144)"/>
+    <use href="#petal" transform="rotate(216)"/>
+    <use href="#petal" transform="rotate(288)"/>
+  </g>
+  <circle cx="16" cy="16" r="1.8" fill="#2a3653"/>
+</svg>

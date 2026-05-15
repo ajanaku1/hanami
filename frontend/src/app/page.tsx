@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { FeaturedBouncers } from "@/components/FeaturedBouncers";
@@ -10,10 +11,11 @@ export default function Home() {
       <PetalsCanvas />
 
       <header className="relative z-50 flex justify-between items-center px-6 sm:px-10 py-5 gap-4">
-        <div className="flex items-baseline gap-3">
+        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
+          <Logo size={28} />
           <span className="font-serif text-[24px] tracking-wider">Hanami</span>
           <span className="text-[18px] text-[var(--hanami-ink-soft)]" style={{ fontFamily: "var(--font-serif-loaded)" }}>花見</span>
-        </div>
+        </Link>
         <nav className="flex items-center gap-4 sm:gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
           <Link href="/create" className="border-none">Mint</Link>
           <Link href="/gallery" className="border-none">Gallery</Link>

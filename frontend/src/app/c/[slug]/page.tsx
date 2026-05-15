@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { useAccount } from "wagmi";
 import { applicant } from "@/copy";
 import { api, type Campaign, type TurnResult } from "@/lib/api";
@@ -282,7 +283,8 @@ function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }
     <>
       <PetalsCanvas />
       <header className="relative z-10 flex justify-between items-center px-10 py-5">
-        <Link href="/" className="flex items-baseline gap-3" style={{ borderBottom: "none" }}>
+        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
+          <Logo size={28} />
           <span className="font-serif text-[24px] tracking-wider">Hanami</span>
           <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
         </Link>
