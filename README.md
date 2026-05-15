@@ -17,6 +17,11 @@ At campaign close, the owner exports a Merkle root and copy-paste-ready Solidity
 
 The MVP ships with two demo bouncers. Both their persona documents, lorebooks, and AI-generated portraits live on 0G Storage. Both iNFTs live on 0G Chain. Both can be inspected on Chainscan.
 
+## Live demo
+
+- **App**: https://hanami-hazel.vercel.app
+- **Backend**: https://hanami-backend-production-2c9b.up.railway.app/health
+
 ## Live on 0G mainnet · chain 16661
 
 | Contract | Address |
