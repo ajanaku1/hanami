@@ -2,20 +2,28 @@
 
 An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. It interviews each applicant inside a TEE on 0G Compute, signs every decision with a TEE attestation hash on 0G Chain, and exports a Merkle root you can drop into any EVM mint contract.
 
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
+[![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
+[![Tests](https://img.shields.io/badge/foundry_tests-15_passing-brightgreen)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+![Hanami architecture: user-signed mint, TEE-attested screening, chain-agnostic Merkle export](docs/architecture.png)
+
 The whole point: projects can't hand-screen 4,400 applicants for 200 spots. Forms get gamed in an afternoon. Captchas get solved by mechanical-turk farms. Hanami runs the first pass (a private conversation with a character your project defines), and the founders only have to review borderline cases.
 
-## Project overview
+## Zero Cup 2026
 
-A project owner:
+Hanami is a Zero Cup tournament entry, built AI-native on 0G for the Group Stage (submissions close June 23, 2026).
 
-1. Mints a bouncer iNFT and writes that bouncer's persona (voice, taste, what makes a fit). Adds an optional project context document the bouncer can reference.
-2. Shares the applicant URL.
+| | |
+|---|---|
+| **Track** | AI-native on 0G (agent / companion) |
+| **0G modules** | Compute (TEE inference + image), Storage (persona, lorebook, portrait, transcripts), Chain (ERC-7857 iNFT + decision log) |
+| **Status** | Live on 0G mainnet, chain 16661, both contracts verified |
 
-An applicant connects a wallet, the bouncer greets them in character, they talk for 3–6 turns. The bouncer issues approve or reject. Decision + reasoning are written on chain with the TEE attestation hash that proves the inference ran inside a sealed enclave.
-
-At campaign close, the owner exports a Merkle root and copy-paste-ready Solidity. That root drops into the project's existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G itself. Hanami does not require the mint to happen on 0G.
-
-The MVP ships with two demo bouncers. Both their persona documents, lorebooks, and AI-generated portraits live on 0G Storage. Both iNFTs live on 0G Chain. Both can be inspected on Chainscan.
+Most entries lean on a single 0G primitive. Hanami's trust model only works because all three are load-bearing: the bouncer reasons inside a TEE on **0G Compute**, its persona and every transcript are content-addressed on **0G Storage**, and each decision lands on **0G Chain** carrying the attestation hash that proves the inference ran in a sealed enclave. Remove any one and the product stops being verifiable.
 
 ## Live demo
 
@@ -31,9 +39,42 @@ The MVP ships with two demo bouncers. Both their persona documents, lorebooks, a
 
 Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted directly to the project owner's wallet. Hanami never custodies the token.
 
-## System architecture
+## Features
 
-![Hanami architecture: user-signed mint, TEE-attested screening, chain-agnostic Merkle export](docs/architecture.png)
+- **AI bouncer you own**: each bouncer is an ERC-7857 iNFT minted to the project owner's wallet, not a service account Hanami controls.
+- **Persona-driven screening**: the owner writes the voice, taste, and fit criteria. The bouncer holds a 3–6 turn private conversation, then approves or rejects.
+- **TEE-attested decisions**: every approve and reject tx carries a `bytes32` attestation hash proving the inference ran inside a sealed enclave.
+- **On-chain receipt**: decision, reasoning hash, and attestation hash are recorded per applicant, inspectable on Chainscan without a wallet.
+- **Chain-agnostic Merkle export**: close a campaign and export a root plus copy-paste Solidity that drops into an existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G.
+- **Anti-gaming by design**: criteria stay sealed in storage, one attempt per wallet is enforced at the API and contract layer, and prompt-injection attempts are rejected.
+- **Owner-revocable delegation**: the backend can sign decisions only because the owner granted it through `authorizeUsage`, and that grant can be revoked anytime.
+
+## Project overview
+
+A project owner:
+
+1. Mints a bouncer iNFT and writes that bouncer's persona (voice, taste, what makes a fit). Adds an optional project context document the bouncer can reference.
+2. Shares the applicant URL.
+
+An applicant connects a wallet, the bouncer greets them in character, they talk for 3–6 turns. The bouncer issues approve or reject. Decision + reasoning are written on chain with the TEE attestation hash that proves the inference ran inside a sealed enclave.
+
+At campaign close, the owner exports a Merkle root and copy-paste-ready Solidity. That root drops into the project's existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G itself. Hanami does not require the mint to happen on 0G.
+
+The MVP ships with two demo bouncers. Both their persona documents, lorebooks, and AI-generated portraits live on 0G Storage. Both iNFTs live on 0G Chain. Both can be inspected on Chainscan.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 15, React, wagmi v2, MetaMask |
+| Backend | Hono, TypeScript, Node 22, SQLite read cache (Turso/libSQL) |
+| Contracts | Solidity 0.8, Foundry, ERC-7857 iNFT, OpenZeppelin |
+| 0G Compute | Router API (`0GM-1.0-35B-A3B` chat, `z-image` portrait), `verify_tee:true` |
+| 0G Storage | `@0gfoundation/0g-storage-ts-sdk`, content-addressed rootHashes |
+| 0G Chain | Mainnet chain 16661, verified on `chainscan.0g.ai` |
+| Hosting | Vercel (frontend), Render (backend) |
+
+## System architecture
 
 The editable Excalidraw source lives at [`docs/architecture.excalidraw`](docs/architecture.excalidraw). Drop it into [excalidraw.com](https://excalidraw.com) (File > Open) to tweak it. The text version below mirrors the same flow for quick reading inline.
 
@@ -214,6 +255,20 @@ npx tsx scripts/smoke-chain.ts        # full mint flow against the deployed cont
 npx tsx scripts/adversarial.ts        # 8 adversarial scenarios; latest run 6/8
 ```
 
+## Project structure
+
+```
+hanami/
+├── frontend/        # Next.js 15 app: /create (owner) + /c/[slug] (applicant chat)
+├── backend/         # Hono API: 0G Storage, 0G Compute, chain indexing, Merkle export
+│   ├── src/         # og-storage.ts, og-compute.ts, og-image.ts, server.ts
+│   └── scripts/     # smoke + adversarial end-to-end checks
+├── contracts/       # Foundry: BouncerRegistry (ERC-7857) + CampaignFactory + Campaign
+│   └── test/        # 15 tests incl. MerkleConsumer.t.sol
+├── docs/            # architecture diagram (Excalidraw source + PNG)
+└── demo/            # demo script + assets
+```
+
 ## Reviewer notes
 
 ### Test account
@@ -253,6 +308,6 @@ These four scenarios are implemented in `backend/scripts/adversarial.ts`:
 
 Latest full run: 6/8. The two misses are documented in the script output. Neither is a security regression.
 
----
+## License
 
-MIT. Built for the 0G Hackathon, May 2026.
+MIT. Built on 0G for the Zero Cup 2026 tournament.
