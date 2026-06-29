@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   created_at        INTEGER NOT NULL,     -- unix seconds
   finalized_at      INTEGER,              -- set when Merkle root published
   merkle_root       TEXT,                 -- 0x... hex
-  visibility        TEXT NOT NULL DEFAULT 'private'  -- 'public' | 'private'
+  visibility        TEXT NOT NULL DEFAULT 'private', -- 'public' | 'private'
+  rep_score         INTEGER NOT NULL DEFAULT 0       -- mirror of the bouncer iNFT's on-chain repScore (canonical = chain)
 );
 
 CREATE INDEX IF NOT EXISTS idx_campaigns_owner ON campaigns(owner_address);
@@ -32,7 +33,8 @@ CREATE TABLE IF NOT EXISTS applicants (
   finished_at     INTEGER,
   decision        TEXT,                   -- 'approved' | 'rejected' | NULL (in progress)
   decision_tx     TEXT,                   -- 0x... on 0G Chain
-  reasoning_uri   TEXT,                   -- ipfs://CID of bouncer's final reasoning
+  reasoning_uri   TEXT,                   -- 0g://rootHash of bouncer's final reasoning
+  transcript_uri  TEXT,                   -- 0g://rootHash of the full conversation transcript (pinned at decision)
   attestation_hash TEXT,                  -- bytes32 hex, mirrors on-chain value
   UNIQUE(campaign_slug, wallet_address)   -- enforces one-attempt-per-wallet at API layer
 );
@@ -54,6 +56,16 @@ CREATE TABLE IF NOT EXISTS turns (
 );
 
 CREATE INDEX IF NOT EXISTS idx_turns_applicant ON turns(applicant_id, turn_index);
+
+-- Durable portrait store. 0G Storage is canonical, but uploads use finalityRequired:false and the
+-- holding node can drop a blob before it replicates — and the Render disk cache is ephemeral. We keep
+-- a base64 copy here (Turso survives restarts) so the /api/image proxy can always serve the portrait.
+-- Keyed by the 0G Storage rootHash, so the bytes here are exactly what that root addresses.
+CREATE TABLE IF NOT EXISTS portraits (
+  root        TEXT PRIMARY KEY,   -- 0G Storage rootHash (0x..)
+  png_b64     TEXT NOT NULL,      -- the PNG bytes, base64
+  created_at  INTEGER NOT NULL
+);
 
 -- Anti-replay: prevents the bouncer backend from re-submitting a decision tx if its first attempt
 -- partially succeeded (paid gas, lost confirmation). On startup we replay this table to reconcile

@@ -19,6 +19,7 @@ export default function Home() {
         <nav className="flex items-center gap-4 sm:gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
           <Link href="/create" className="border-none">Mint</Link>
           <Link href="/gallery" className="border-none">Gallery</Link>
+          <Link href="/mine" className="border-none">Mine</Link>
           <a className="border-none hidden sm:inline" href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">Contract</a>
         </nav>
       </header>
@@ -125,15 +126,16 @@ export default function Home() {
           <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight mb-3">Four primitives, one tool.</h2>
           <p className="text-[var(--hanami-ink-soft)]">
             The bouncer&apos;s reasoning is private but verifiable. The persona is durable. The iNFT is
-            tradable. The Merkle root is chain-agnostic. Each piece sits on the part of 0G that fits.
+            tradable — sell the bouncer and its reputation and decision history travel with the token.
+            The Merkle root is chain-agnostic. Each piece sits on the part of 0G that fits.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           <Pillar tag="0G Compute · Sealed inference" name="The interview runs inside a TEE">
             Every applicant turn is forwarded to a TEE-attested provider. The bouncer&apos;s criteria stay
-            private — jailbreak attempts and screenshot leaks don&apos;t expose them. We verify the
-            provider signature on every response and reject any reply that didn&apos;t pass.
+            private — jailbreak attempts and screenshot leaks don&apos;t expose them. We check the TEE
+            attestation on every response and reject any reply where <code>tee_verified</code> isn&apos;t true.
           </Pillar>
           <Pillar tag="0G Storage · KV + Log" name="Persona, lorebook, and reasoning land on 0G">
             The bouncer&apos;s persona prompt and reference lorebook are uploaded to 0G Storage at mint.

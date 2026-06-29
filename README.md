@@ -3,10 +3,10 @@
 An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. It interviews each applicant inside a TEE on 0G Compute, signs every decision with a TEE attestation hash on 0G Chain, and exports a Merkle root you can drop into any EVM mint contract.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
-[![Tests](https://img.shields.io/badge/foundry_tests-15_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/foundry_tests-16_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ![Hanami architecture: user-signed mint, TEE-attested screening, chain-agnostic Merkle export](docs/architecture.png)
@@ -15,7 +15,7 @@ The whole point: projects can't hand-screen 4,400 applicants for 200 spots. Form
 
 ## Zero Cup 2026
 
-Hanami is a Zero Cup tournament entry, built AI-native on 0G for the Group Stage (submissions close June 23, 2026).
+Hanami is a Zero Cup tournament entry, built AI-native on 0G. It cleared the Group Stage and advanced to the **Round of 32**. See [What's new for the Round of 32](#whats-new-for-the-round-of-32) below.
 
 | | |
 |---|---|
@@ -24,6 +24,16 @@ Hanami is a Zero Cup tournament entry, built AI-native on 0G for the Group Stage
 | **Status** | Live on 0G mainnet, chain 16661, both contracts verified |
 
 Most entries lean on a single 0G primitive. Hanami's trust model only works because all three are load-bearing: the bouncer reasons inside a TEE on **0G Compute**, its persona and every transcript are content-addressed on **0G Storage**, and each decision lands on **0G Chain** carrying the attestation hash that proves the inference ran in a sealed enclave. Remove any one and the product stops being verifiable.
+
+## What's new for the Round of 32
+
+The tournament rewards improving between rounds. Since the Group Stage:
+
+- **Verify on 0G**: every decision screen now has a one-click check that pulls the inference's `x_0g_trace`, recomputes `keccak256(requestId, provider, tee_verified)` in your browser, and shows it matching the hash on chain byte-for-byte. The attestation claim went from "trust the README" to a 15-second proof anyone can run, no wallet needed.
+- **On-chain reputation, live**: each approval now calls `incrementRep` on the bouncer iNFT, so a bouncer accrues a verifiable track record that travels with the token across every campaign it runs. Previously declared on the contract but inert; now wired end to end.
+- **Transcripts pinned to 0G Storage**: the full conversation (not just the reasoning hash) is now content-addressed on Storage at decision time, with its rootHash on the decision record.
+- **Privacy gate**: a private campaign's applicant feed (wallets + decisions) now requires an owner signature; aggregate counts stay public.
+- **Hardening**: the real `tee_verified` flag is persisted per turn, a keepalive keeps the backend warm for judges, and the copy now matches the contract (the iNFT is a tradable ERC-721 whose reputation and history travel with it; the ERC-7857 sealed-key transfer path is a documented v1 limitation).
 
 ## Live demo
 
@@ -44,9 +54,12 @@ Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted direct
 - **AI bouncer you own**: each bouncer is an ERC-7857 iNFT minted to the project owner's wallet, not a service account Hanami controls.
 - **Persona-driven screening**: the owner writes the voice, taste, and fit criteria. The bouncer holds a 3–6 turn private conversation, then approves or rejects.
 - **TEE-attested decisions**: every approve and reject tx carries a `bytes32` attestation hash proving the inference ran inside a sealed enclave.
-- **On-chain receipt**: decision, reasoning hash, and attestation hash are recorded per applicant, inspectable on Chainscan without a wallet.
+- **Verify on 0G (in-app)**: any decision screen recomputes `keccak256(requestId, provider, tee_verified)` from the `x_0g_trace` in the browser and shows it matching the on-chain attestation hash byte-for-byte. A 15-second proof anyone can run, no wallet needed.
+- **On-chain receipt**: decision, reasoning hash, and attestation hash are recorded per applicant, inspectable on Chainscan without a wallet. The full conversation transcript is pinned to 0G Storage at decision time.
+- **On-chain reputation**: each approval increments the bouncer iNFT's `repScore`, so a verifiable track record accrues to the token and travels with it across campaigns.
 - **Chain-agnostic Merkle export**: close a campaign and export a root plus copy-paste Solidity that drops into an existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G.
-- **Anti-gaming by design**: criteria stay sealed in storage, one attempt per wallet is enforced at the API and contract layer, and prompt-injection attempts are rejected.
+- **Anti-gaming by design**: criteria stay sealed in storage, one attempt per wallet is enforced at the API and contract layer, prompt-injection attempts are rejected, and expensive endpoints are rate-limited.
+- **Privacy gate**: a private campaign's per-applicant feed (wallets + decisions) requires an owner signature; aggregate counts stay public.
 - **Owner-revocable delegation**: the backend can sign decisions only because the owner granted it through `authorizeUsage`, and that grant can be revoked anytime.
 
 ## Project overview
@@ -60,14 +73,14 @@ An applicant connects a wallet, the bouncer greets them in character, they talk 
 
 At campaign close, the owner exports a Merkle root and copy-paste-ready Solidity. That root drops into the project's existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G itself. Hanami does not require the mint to happen on 0G.
 
-The MVP ships with two demo bouncers. Both their persona documents, lorebooks, and AI-generated portraits live on 0G Storage. Both iNFTs live on 0G Chain. Both can be inspected on Chainscan.
+The MVP ships with three demo bouncers (Kenji, Bad Frogs, Sakura Society). Their persona documents and lorebooks live on 0G Storage and their iNFTs live on 0G Chain, all inspectable on Chainscan. AI-generated portraits are pinned to 0G Storage and mirrored in a durable store (see [Portraits](#portrait-durability)) so they keep rendering even if a storage node drops the blob.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 15, React, wagmi v2, MetaMask |
-| Backend | Hono, TypeScript, Node 22, SQLite read cache (Turso/libSQL) |
+| Frontend | Next.js 16, React, wagmi v2, MetaMask |
+| Backend | Hono, TypeScript, Node 22, Turso/libSQL (read cache + durable portrait store) |
 | Contracts | Solidity 0.8, Foundry, ERC-7857 iNFT, OpenZeppelin |
 | 0G Compute | Router API (`0GM-1.0-35B-A3B` chat, `z-image` portrait), `verify_tee:true` |
 | 0G Storage | `@0gfoundation/0g-storage-ts-sdk`, content-addressed rootHashes |
@@ -169,9 +182,13 @@ What we pin on storage:
 - Decision reasoning for every approve/reject (a paragraph in the bouncer's voice).
 - Full conversation transcript per applicant.
 
-The rootHashes for all four go on chain at mint or per decision tx. 0G Storage is the canonical home; the local SQLite database is just a read cache so the admin dashboard renders without round-tripping storage on every load.
+The persona, lorebook, and portrait roots go on chain at mint (as the iNFT's URIs); the reasoning hash goes on chain per decision. The transcript root is pinned to 0G Storage and recorded in the index DB (`applicants.transcript_uri`), not passed on-chain. 0G Storage is the canonical home; the Turso/libSQL database is a read cache so the admin dashboard renders without round-tripping storage on every load.
 
-We hit one real-world quirk: `indexer.upload(...)` defaults to `finalityRequired:true`, which polls for network-wide finalization confirmation. On busy mainnet replicas this can hang 10+ minutes on larger blobs (the 700KB portrait PNG hit this consistently). We pass `finalityRequired:false` so the upload returns as soon as a node accepts the file; finalization happens in the background. The mirror local PNG cache (`backend/.image-cache/`) means the frontend can render the portrait immediately while replication catches up.
+We pass `finalityRequired:false` on upload: the default (`true`) polls for network-wide finalization and can hang 10+ minutes on larger blobs (the ~700KB portrait PNG hit this consistently), so we return as soon as a node accepts the file and let finalization happen in the background.
+
+#### Portrait durability
+
+`finalityRequired:false` has a sharp edge: a holding node can drop a blob before it replicates, and the indexer then returns `File not found` for that root. The original demo portraits were lost this way: the only surviving copy lived in Render's `.image-cache/`, which is wiped on every restart. So portraits now have a durable home: each generated PNG is stored base64 in a `portraits` table (Turso survives restarts) keyed by its rootHash. The `/api/image/:root` proxy resolves **disk cache → Turso → 0G indexer**, backfilling caches on every hit, and the frontend `<Portrait>` falls back to a procedural SVG on any load error, so a card never shows a broken image. (The three demo portraits were regenerated after this fix; their displayed root is the durable one and may differ from the now-dead root recorded on-chain at the original mint, since `BouncerRegistry` has no `setImageURI` in v1.)
 
 ### 0G Compute Router (`backend/src/og-compute.ts` and `backend/src/og-image.ts`)
 
@@ -180,7 +197,7 @@ Endpoint: `https://router-api.0g.ai/v1`. OpenAI-compatible. All requests use `ve
 Two models in use:
 
 - `0GM-1.0-35B-A3B` for the bouncer chat. TEE-attested. Thinking mode is disabled via `chat_template_kwargs: { enable_thinking: false }` because the bouncer doesn't need chain-of-thought. It needs to stay in character and decide.
-- `z-image` for the bouncer portrait. TEE-attested. Same TEE provider (`0xE29a…F974`) attests the image generation, so every minted Hanami portrait carries provable TEE provenance.
+- `z-image` for the bouncer portrait. TEE-attested. Same TEE provider (`0xE29a…F974`) attests the image generation, so a freshly minted Hanami portrait carries provable TEE provenance. (The three demo portraits were regenerated after a storage-durability fix, so their current bytes are a re-pin whose root differs from the one recorded on-chain at the original mint. See [Portrait durability](#portrait-durability).)
 
 Each chat response comes back with an `x_0g_trace` object. We compute the on-chain attestation hash as `keccak256(abi.encode(requestId, provider, tee_verified))` and pass that as a parameter to `Campaign.recordDecision`. No off-chain trust required; anyone can recompute the hash from the trace and match it against the on-chain log.
 
@@ -188,11 +205,11 @@ Each chat response comes back with an `x_0g_trace` object. We compute the on-cha
 
 Chain ID 16661. Two contracts, both verified on `chainscan.0g.ai`:
 
-- `BouncerRegistry`: ERC-7857-compliant iNFT. Each token holds `(encryptedPersonaURI, lorebookURI, imageURI, oracleConditions, repScore)`. Soulbound by design (ERC-7857 `transfer` and `clone` revert in v1). Implements `authorizeUsage` so the iNFT owner can delegate write access to one or more executors (the Hanami backend, in the standard flow).
+- `BouncerRegistry`: ERC-7857-compliant iNFT. Each token holds `(encryptedPersonaURI, lorebookURI, imageURI, oracleConditions, repScore)`. Transferable as a standard ERC-721: the token, its `repScore`, and its on-chain decision history all travel with the new owner (everything is keyed by `tokenId`). The ERC-7857 sealed-key `transfer`/`clone` path (which re-encrypts the persona for the new holder) is disabled in v1 and reverts; a plain ERC-721 `transferFrom` is how the token actually moves. Implements `authorizeUsage` so the iNFT owner can delegate write access to one or more executors (the Hanami backend, in the standard flow), and that grant is revocable.
 
 - `CampaignFactory` and `Campaign`: one campaign per whitelist round. `Campaign.recordDecision` requires the caller to be authorized by the bouncer iNFT, enforces one-attempt-per-wallet, respects the WL size cap, and stores `(reasoningHash, attestationHash, status, timestamp)` per applicant. `finalizeMerkleRoot` is owner-only and one-shot.
 
-15 Foundry tests in `contracts/test/`, including a separate `MerkleConsumer.t.sol` that simulates an external EVM mint contract consuming the exported root. Five tests prove approved addresses can mint, rejected addresses revert with `NotApproved`, and double-mint reverts with `AlreadyMinted`.
+16 Foundry tests in `contracts/test/`, including a separate `MerkleConsumer.t.sol` that simulates an external EVM mint contract consuming the exported root. Five tests prove approved addresses can mint, rejected addresses revert with `NotApproved`, and double-mint reverts with `AlreadyMinted`. The registry suite proves both transfer paths: the ERC-7857 sealed-key `transfer` reverts (`TransferDisabled`) while standard ERC-721 `transferFrom` works and carries the token's stored data.
 
 ## How those modules support the product
 
@@ -224,7 +241,8 @@ git clone <this repo> hanami && cd hanami
 
 # 2. contracts. Already deployed to 0G mainnet. Run tests locally if you want.
 cd contracts && forge install && forge test
-# 15 tests pass: BouncerRegistry + Campaign + MerkleConsumer
+# 16 tests pass: BouncerRegistry + Campaign + MerkleConsumer
+# (if forge-std is missing: git clone --depth 1 https://github.com/foundry-rs/forge-std lib/forge-std)
 
 # 3. backend
 cd ../backend && npm install
@@ -259,12 +277,12 @@ npx tsx scripts/adversarial.ts        # 8 adversarial scenarios; latest run 6/8
 
 ```
 hanami/
-├── frontend/        # Next.js 15 app: /create (owner) + /c/[slug] (applicant chat)
+├── frontend/        # Next.js 16 app: /create (owner) + /c/[slug] (applicant chat)
 ├── backend/         # Hono API: 0G Storage, 0G Compute, chain indexing, Merkle export
 │   ├── src/         # og-storage.ts, og-compute.ts, og-image.ts, server.ts
 │   └── scripts/     # smoke + adversarial end-to-end checks
 ├── contracts/       # Foundry: BouncerRegistry (ERC-7857) + CampaignFactory + Campaign
-│   └── test/        # 15 tests incl. MerkleConsumer.t.sol
+│   └── test/        # 16 tests incl. MerkleConsumer.t.sol
 ├── docs/            # architecture diagram (Excalidraw source + PNG)
 └── demo/            # demo script + assets
 ```
@@ -294,7 +312,7 @@ You can read the full state without signing anything:
 ### Known gotchas
 
 - **0G Compute Router API keys are wallet-bound.** A key you generated while connected to wallet A won't see funds you deposited from wallet B. Create the key while connected with the wallet that funds the Router escrow.
-- **Storage uploads use `finalityRequired:false`.** This is documented in `backend/src/og-storage.ts`. The file is pinned immediately; it becomes downloadable through the indexer a few minutes later, after the network finalizes. The local PNG cache in `backend/.image-cache/` papers over this for portraits the same node generated. If a fresh machine tries to fetch a portrait root for the first time before finalization, it can get a 502 from the indexer. Retry in a minute.
+- **Storage uploads use `finalityRequired:false`.** Documented in `backend/src/og-storage.ts`. The file is pinned immediately and becomes downloadable through the indexer once the network finalizes, but a holding node can drop it first, after which the indexer returns `File not found`. Portraits are insulated from this by the durable `portraits` store in Turso plus the procedural-SVG fallback (see [Portrait durability](#portrait-durability)); other blobs (persona, lorebook, reasoning) are small text and finalize reliably.
 - **Chain ID enforcement.** The mint flow calls `switchChainAsync({ chainId: 16661 })` unconditionally before any signing prompt. If your wallet sits on Sepolia, Ethereum mainnet, or anywhere else, MetaMask will pop a "switch to 0G" prompt first. This is intentional. wagmi v2's `useChainId()` can report stale values when the wallet's actual chain isn't in the config's `chains` array, so we don't trust it for gating.
 
 ### Adversarial behavior
@@ -306,7 +324,9 @@ These four scenarios are implemented in `backend/scripts/adversarial.ts`:
 - Prompt-injection attempts (`ignore previous instructions`, fake admin tags, scripted insider claims) → reject. Passes after a frame-rule tightening; the bouncer no longer parrots scripted persona language.
 - Retry after rejection → blocked at the API layer and at the `Campaign` contract layer.
 
-Latest full run: 6/8. The two misses are documented in the script output. Neither is a security regression.
+Last recorded full run: 6/8. Both misses are false-negatives: genuinely thoughtful applicants (`T1`, `T2`) that the bouncer rejected for being understated rather than for any flip/hype/manipulation signal. That is a conservative failure, not a security regression: the gate never let a bad actor through, it just turned away two good ones.
+
+For the Round of 32 we added a frame rule that tells the bouncer not to over-reject sincere, specific-but-quiet applicants (genuine specificity outweighs a low word count), while leaving the auto-reject defenses for hype, flip intent, and manipulation untouched. Re-run `npx tsx scripts/adversarial.ts` against a funded Router to confirm the two thoughtful cases now approve; the four jailbreak/low-effort rejections and the flip-intent edge case are unchanged.
 
 ## License
 

@@ -1,7 +1,12 @@
+"use client";
+
+import { useState } from "react";
+
 // Stylized SVG portrait. The full version is Mei-chan; variants tint hair/skin/robe
-// from the persona seed so different bouncers visually differ. When the AI image-gen
-// stretch lands on Day 3, this becomes the fallback for any persona without a generated
-// portrait yet.
+// from the persona seed so different bouncers visually differ. It is the fallback for any
+// persona without a generated portrait — and, via onError below, for any generated portrait
+// whose bytes can't be served (e.g. a 0G Storage root that has yet to replicate, or a wiped
+// image cache), so a card never shows a broken-image icon.
 
 type Variant = {
   bg: string;
@@ -58,9 +63,18 @@ function resolveImage(uri: string | null | undefined): string | null {
 
 export function Portrait({ variant = "meiChan", className, imageUri }: Props) {
   const src = resolveImage(imageUri);
-  if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt="" className={className} style={{ objectFit: "cover", width: "100%", height: "100%" }} />;
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        className={className}
+        style={{ objectFit: "cover", width: "100%", height: "100%" }}
+        onError={() => setFailed(true)}
+      />
+    );
   }
   const v = VARIANTS[variant];
   const id = `p${variant}`;

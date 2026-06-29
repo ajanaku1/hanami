@@ -38,7 +38,24 @@ const registryAbi = parseAbi([
   "function ownerOf(uint256 tokenId) view returns (address)",
   "function isAuthorized(uint256 tokenId, address executor) view returns (bool)",
   "event BouncerMinted(uint256 indexed tokenId, address indexed owner, string personaURI, string imageURI)",
+  "event RepIncremented(uint256 indexed tokenId, uint256 newScore)",
 ]);
+
+// Bumps the bouncer iNFT's on-chain reputation by one. Authorized-executor gated (the backend was
+// granted this at mint via authorizeUsage), so the score accrues to the token and travels with it
+// across campaigns. Returns the new score parsed from the RepIncremented event.
+export async function incrementRep(tokenId: bigint): Promise<{ txHash: Hex; newScore: bigint }> {
+  const txHash = await wallet.writeContract({
+    address: BOUNCER_REGISTRY,
+    abi: registryAbi,
+    functionName: "incrementRep",
+    args: [tokenId],
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const [bumped] = parseEventLogs({ abi: registryAbi, eventName: "RepIncremented", logs: receipt.logs });
+  if (!bumped) throw new Error("RepIncremented event not found in receipt");
+  return { txHash, newScore: bumped.args.newScore };
+}
 
 // Read helpers used by the server.ts /index endpoint to verify the user actually owns the iNFT
 // they're claiming and has authorized the backend, before we trust their indexing payload.

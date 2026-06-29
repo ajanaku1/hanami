@@ -25,6 +25,15 @@ export async function initDb(): Promise<void> {
   if (!has("image_uri")) {
     await db.execute("ALTER TABLE campaigns ADD COLUMN image_uri TEXT");
   }
+  if (!has("rep_score")) {
+    await db.execute("ALTER TABLE campaigns ADD COLUMN rep_score INTEGER NOT NULL DEFAULT 0");
+  }
+
+  const appCols = await db.execute("PRAGMA table_info(applicants)");
+  const hasApp = (name: string) => appCols.rows.some((c) => c.name === name);
+  if (!hasApp("transcript_uri")) {
+    await db.execute("ALTER TABLE applicants ADD COLUMN transcript_uri TEXT");
+  }
 }
 
 /// libSQL Row objects don't JSON-serialize cleanly, so we flatten each row into a plain

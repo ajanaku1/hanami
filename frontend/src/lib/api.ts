@@ -76,6 +76,7 @@ export type Campaign = {
   finalized_at: number | null;
   merkle_root: string | null;
   visibility: "public" | "private";
+  rep_score: number;
   created_at: number;
   approved_count: number;
   rejected_count: number;
@@ -95,6 +96,7 @@ export type TurnResult = {
   decisionTx?: string;
   attestationHash?: string;
   reasoningRoot?: string;
+  repScore?: number;
 };
 
 export type AdminPayload = {
@@ -120,6 +122,13 @@ export type MerkleExportResult = {
 };
 
 export type FinalizeBody = { signature: string; caller: string; nonce: number };
+
+export type VerifyResult = {
+  decision: "approved" | "rejected";
+  decisionTx: string | null;
+  attestationHash: string;
+  trace: { requestId: string; provider: string; teeVerified: boolean };
+};
 
 export const api = {
   prepareCampaign: (body: PrepareCampaignBody) =>
@@ -152,5 +161,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ walletAddress, message }),
     }),
-  getAdmin: (slug: string) => call<AdminPayload>(`/api/campaigns/${slug}/admin`),
+  verifyDecision: (slug: string, wallet: string) =>
+    call<VerifyResult>(`/api/campaigns/${slug}/verify/${wallet}`),
+  getAdmin: (slug: string, auth?: AdminAuth) => {
+    const headers = auth
+      ? { "x-hanami-caller": auth.caller, "x-hanami-nonce": String(auth.nonce), "x-hanami-sig": auth.sig }
+      : undefined;
+    return call<AdminPayload>(`/api/campaigns/${slug}/admin`, { headers });
+  },
 };
+
+// Owner signature for viewing a private campaign's applicant feed. The nonce is a ms timestamp;
+// the backend accepts it for 10 minutes, so one signature covers a whole admin session of polls.
+// Sent in headers (not the query string) so it can't leak through logs/history/Referer.
+export type AdminAuth = { caller: string; nonce: number; sig: string };
+
+// call() throws `${status} ${path}: ${body}`, so the status is at the start of the message.
+export function isAuthError(e: unknown): boolean {
+  return e instanceof Error && /^(401|403)\b/.test(e.message);
+}

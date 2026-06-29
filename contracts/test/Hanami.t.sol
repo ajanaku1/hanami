@@ -43,6 +43,18 @@ contract HanamiTest is Test {
         registry.transfer(project, address(0xCAFE), id, "", "");
     }
 
+    // The bouncer is a tradable ERC-721: the ERC-7857 sealed-key path is disabled (above), but the
+    // standard transferFrom moves the token and its stored data (persona/repScore) travels with it.
+    function test_StandardERC721TransferWorks() public {
+        uint256 id = _mintBouncer();
+        address buyer = address(0xCAFE);
+        vm.prank(project);
+        registry.transferFrom(project, buyer, id);
+        assertEq(registry.ownerOf(id), buyer);
+        BouncerRegistry.Bouncer memory b = registry.bouncerOf(id);
+        assertEq(b.encryptedPersonaURI, "ipfs://persona");
+    }
+
     function test_AuthorizeUsageGatesRecordAndIncrement() public {
         uint256 id = _mintBouncer();
 

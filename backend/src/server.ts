@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Hono } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { z } from "zod";
@@ -7,7 +7,7 @@ import { get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
-import { recordDecision, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { recordDecision, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
 import { buildExport } from "./merkle.js";
 import type { ChatTurn } from "./og-compute.js";
 import { privateKeyToAccount } from "viem/accounts";
@@ -26,6 +26,29 @@ const cachePath = (root: string) => join(IMAGE_CACHE_DIR, `${root}.png`);
 
 const app = new Hono();
 app.use("*", cors());
+
+// Lightweight in-memory rate limiter. The backend runs single-instance on Render, so a process-local
+// sliding window is enough to stop a trivial flood from draining the 0G Compute Router escrow on the
+// expensive endpoints (LLM chat, 90s portrait gen, Storage uploads). Not a substitute for an edge WAF.
+const rlHits = new Map<string, number[]>();
+function clientIp(c: Context): string {
+  const fwd = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  return fwd || c.req.header("x-real-ip") || "unknown";
+}
+function rateLimit(opts: { key: string; limit: number; windowMs: number }) {
+  return async (c: Context, next: Next) => {
+    const id = `${opts.key}:${clientIp(c)}`;
+    const now = Date.now();
+    const hits = (rlHits.get(id) ?? []).filter((t) => now - t < opts.windowMs);
+    hits.push(now);
+    rlHits.set(id, hits);
+    if (hits.length > opts.limit) return c.json({ error: "rate limited — slow down" }, 429);
+    await next();
+  };
+}
+app.use("/api/campaigns/prepare", rateLimit({ key: "prepare", limit: 5, windowMs: 600_000 }));
+app.use("/api/campaigns/:slug/begin", rateLimit({ key: "begin", limit: 10, windowMs: 60_000 }));
+app.use("/api/campaigns/:slug/turns", rateLimit({ key: "turns", limit: 30, windowMs: 60_000 }));
 
 const backendAddress = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex).address;
 
@@ -71,6 +94,11 @@ app.post("/api/campaigns/prepare", async (c) => {
     ]);
     imageRoot = imgUp.rootHash;
     try { writeFileSync(cachePath(imageRoot), png); } catch (e) { console.warn("image cache write failed:", e); }
+    // Durable copy in the DB (Turso survives restarts; the 0G blob and disk cache may not).
+    try {
+      await run("INSERT OR REPLACE INTO portraits (root, png_b64, created_at) VALUES (?, ?, ?)",
+        [imageRoot, png.toString("base64"), Math.floor(Date.now() / 1000)]);
+    } catch (e) { console.warn("portrait DB persist failed:", e); }
   } catch (err) {
     console.error("portrait pipeline failed, returning imageURI='':", (err as Error).message);
   }
@@ -219,7 +247,7 @@ const turnBody = z.object({
   message: z.string().min(1).max(2000),
 });
 
-type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null };
+type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null; bouncer_token_id: number };
 type ApplicantRow = { id: number; decision: string | null };
 
 const beginBody = z.object({
@@ -262,8 +290,8 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
   const turn = await bouncerGreeting(personaText, lorebookText);
 
   await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
-             VALUES (?, 0, 'bouncer', ?, ?, ?, 1, ?)`,
-    [applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000)]);
+             VALUES (?, 0, 'bouncer', ?, ?, ?, ?, ?)`,
+    [applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, turn.trace.tee_verified ? 1 : 0, Math.floor(Date.now() / 1000)]);
 
   return c.json({ reply: turn.reply });
 });
@@ -315,12 +343,27 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
 
   const bouncerIndex = userIndex + 1;
   await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
-             VALUES (?, ?, 'bouncer', ?, ?, ?, 1, ?)`,
-    [applicant.id, bouncerIndex, turn.reply, turn.trace.request_id, turn.trace.provider, Math.floor(Date.now() / 1000)]);
+             VALUES (?, ?, 'bouncer', ?, ?, ?, ?, ?)`,
+    [applicant.id, bouncerIndex, turn.reply, turn.trace.request_id, turn.trace.provider, turn.trace.tee_verified ? 1 : 0, Math.floor(Date.now() / 1000)]);
 
   if (!turn.decision) return c.json({ reply: turn.reply, decision: null });
 
   const reasoningUp = await uploadText(turn.decision.reasoning || turn.reply);
+
+  // Pin the full conversation transcript to 0G Storage so the decision record is auditable end to
+  // end (not just the reasoning hash). The complete ordered turn log — including the final bouncer
+  // reply just inserted — is the canonical artifact; its rootHash is stored alongside the decision.
+  const fullTurns = await all(
+    "SELECT turn_index, role, content, router_request_id, provider, tee_verified, created_at FROM turns WHERE applicant_id = ? ORDER BY turn_index ASC",
+    [applicant.id],
+  );
+  const transcriptUp = await uploadText(JSON.stringify({
+    campaign: slug,
+    applicant: walletAddress.toLowerCase(),
+    decision: turn.decision.kind === "approve" ? "approved" : "rejected",
+    turns: fullTurns,
+  }));
+
   const recorded = await recordDecision(
     campaign.campaign_address as `0x${string}`,
     walletAddress as `0x${string}`,
@@ -329,16 +372,31 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     turn.trace,
   );
 
-  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, attestation_hash = ?, finished_at = ?
+  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, transcript_uri = ?, attestation_hash = ?, finished_at = ?
              WHERE id = ?`,
     [
       turn.decision.kind === "approve" ? "approved" : "rejected",
       recorded.txHash,
       `0g://${reasoningUp.rootHash}`,
+      `0g://${transcriptUp.rootHash}`,
       recorded.attestationHash,
       Math.floor(Date.now() / 1000),
       applicant.id,
     ]);
+
+  // Approvals accrue verifiable reputation to the bouncer iNFT on-chain (incrementRep is executor-
+  // gated; the backend was authorized at mint). Best-effort: the decision is already recorded, so a
+  // rep-bump failure must not fail the applicant's response. We mirror the new score for fast reads.
+  let repScore: number | undefined;
+  if (turn.decision.kind === "approve") {
+    try {
+      const bumped = await incrementRep(BigInt(campaign.bouncer_token_id));
+      repScore = Number(bumped.newScore);
+      await run("UPDATE campaigns SET rep_score = ? WHERE slug = ?", [repScore, slug]);
+    } catch (err) {
+      console.error("incrementRep failed (decision already recorded):", (err as Error).message);
+    }
+  }
 
   return c.json({
     reply: turn.reply,
@@ -346,6 +404,8 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     decisionTx: recorded.txHash,
     attestationHash: recorded.attestationHash,
     reasoningRoot: reasoningUp.rootHash,
+    transcriptRoot: transcriptUp.rootHash,
+    repScore,
   });
 });
 
@@ -407,8 +467,34 @@ app.post("/api/campaigns/:slug/finalize", async (c) => {
 
 app.get("/api/campaigns/:slug/admin", async (c) => {
   const slug = c.req.param("slug");
-  const campaign = await get("SELECT * FROM campaigns WHERE slug = ?", [slug]);
+  const campaign = await get<{ owner_address: string; visibility: string }>(
+    "SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "not found" }, 404);
+
+  // Private campaigns hold sealed criteria and per-applicant decisions — the project's moat.
+  // Gate the full applicant feed behind an owner signature (same nonce-signature pattern as
+  // /visibility and /finalize). Public campaigns stay openly inspectable by design. The proof
+  // rides in headers, not the query string, so it can't leak through logs/history/Referer.
+  if (campaign.visibility === "private") {
+    const caller = c.req.header("x-hanami-caller");
+    const sig = c.req.header("x-hanami-sig");
+    const nonce = Number(c.req.header("x-hanami-nonce"));
+    if (!caller || !sig || !Number.isInteger(nonce)) {
+      return c.json({ error: "owner signature required for private campaign" }, 401);
+    }
+    if (!/^0x[a-fA-F0-9]{40}$/.test(caller) || !/^0x[a-fA-F0-9]+$/.test(sig)) {
+      return c.json({ error: "invalid caller or signature" }, 400);
+    }
+    if (caller.toLowerCase() !== campaign.owner_address.toLowerCase()) {
+      return c.json({ error: "not owner" }, 403);
+    }
+    if (Math.abs(Date.now() - nonce) > 10 * 60 * 1000) return c.json({ error: "stale nonce" }, 400);
+    const { verifyMessage } = await import("viem");
+    const message = `Hanami: view ${slug} admin at ${nonce}`;
+    const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: sig as `0x${string}` });
+    if (!ok) return c.json({ error: "signature did not verify" }, 401);
+  }
+
   const applicants = await all(`SELECT wallet_address, decision, decision_tx, attestation_hash, finished_at
                                 FROM applicants WHERE campaign_slug = ? ORDER BY started_at DESC`, [slug]);
   const counts = await get(`SELECT
@@ -417,6 +503,45 @@ app.get("/api/campaigns/:slug/admin", async (c) => {
     SUM(CASE WHEN decision IS NULL THEN 1 ELSE 0 END) AS pending
     FROM applicants WHERE campaign_slug = ?`, [slug]);
   return c.json({ campaign, applicants, counts });
+});
+
+// TEE attestation receipt for one decision. Returns the raw x_0g_trace components the on-chain
+// attestationHash was derived from, so a verifier can recompute keccak256(abi.encode(
+// keccak256(requestId), provider, teeVerified)) themselves and match it against the recorded hash
+// (and the decision tx on chainscan). All values are already public on-chain — this just packages
+// them for the in-UI "Verify on 0G" proof. No wallet needed.
+app.get("/api/campaigns/:slug/verify/:wallet", async (c) => {
+  const slug = c.req.param("slug");
+  const wallet = c.req.param("wallet");
+  if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) return c.json({ error: "invalid wallet" }, 400);
+
+  const applicant = await get<{ id: number; decision: string | null; decision_tx: string | null; attestation_hash: string | null }>(
+    "SELECT id, decision, decision_tx, attestation_hash FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
+    [slug, wallet.toLowerCase()],
+  );
+  if (!applicant) return c.json({ error: "no application found" }, 404);
+  if (!applicant.decision || !applicant.attestation_hash) return c.json({ error: "no decision yet" }, 409);
+
+  // The decision was computed from the final bouncer turn's trace — the highest-indexed bouncer
+  // turn carrying a router request id.
+  const decisionTurn = await get<{ router_request_id: string; provider: string; tee_verified: number }>(
+    `SELECT router_request_id, provider, tee_verified FROM turns
+     WHERE applicant_id = ? AND role = 'bouncer' AND router_request_id IS NOT NULL
+     ORDER BY turn_index DESC LIMIT 1`,
+    [applicant.id],
+  );
+  if (!decisionTurn) return c.json({ error: "no attested turn on record" }, 404);
+
+  return c.json({
+    decision: applicant.decision,
+    decisionTx: applicant.decision_tx,
+    attestationHash: applicant.attestation_hash,
+    trace: {
+      requestId: decisionTurn.router_request_id,
+      provider: decisionTurn.provider,
+      teeVerified: decisionTurn.tee_verified === 1,
+    },
+  });
 });
 
 // Admin-only: backfill the image cache. Used by the seed-bouncer script when it ran
@@ -446,19 +571,31 @@ app.get("/api/image/:root", async (c) => {
   const root = c.req.param("root");
   if (!/^0x[a-fA-F0-9]{64}$/.test(root)) return c.json({ error: "invalid root hash" }, 400);
 
+  const pngHeaders = { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" };
+
+  // 1. ephemeral disk cache (fastest, but wiped on host restart)
   const local = cachePath(root);
   if (existsSync(local)) {
-    const bytes = readFileSync(local);
-    return new Response(new Uint8Array(bytes), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" },
-    });
+    return new Response(new Uint8Array(readFileSync(local)), { headers: pngHeaders });
   }
+
+  // 2. durable DB copy (Turso survives restarts) — backfills the disk cache on hit
+  const stored = await get<{ png_b64: string }>("SELECT png_b64 FROM portraits WHERE root = ?", [root]);
+  if (stored?.png_b64) {
+    const bytes = Buffer.from(stored.png_b64, "base64");
+    try { writeFileSync(local, bytes); } catch { /* best-effort cache fill */ }
+    return new Response(new Uint8Array(bytes), { headers: pngHeaders });
+  }
+
+  // 3. fall back to the 0G Storage indexer; backfill both caches on success
   try {
     const bytes = await readByRoot(root);
     try { writeFileSync(local, bytes); } catch { /* best-effort cache fill */ }
-    return new Response(new Uint8Array(bytes), {
-      headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000, immutable" },
-    });
+    try {
+      await run("INSERT OR REPLACE INTO portraits (root, png_b64, created_at) VALUES (?, ?, ?)",
+        [root, bytes.toString("base64"), Math.floor(Date.now() / 1000)]);
+    } catch { /* best-effort durable backfill */ }
+    return new Response(new Uint8Array(bytes), { headers: pngHeaders });
   } catch (err) {
     return c.json({ error: (err as Error).message }, 502);
   }

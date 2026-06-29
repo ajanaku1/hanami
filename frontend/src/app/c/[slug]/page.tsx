@@ -9,6 +9,7 @@ import { api, type Campaign, type TurnResult } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { Portrait, pickVariant } from "@/components/Portrait";
 import { Seal } from "@/components/Seal";
+import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
 
@@ -164,16 +165,12 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
               {copy.title}
             </h1>
             <p className="text-[var(--hanami-ink-soft)] mb-8 max-w-[44ch]">{copy.body}</p>
-            {approved && decision.decisionTx && (
-              <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-5 max-w-md">
+            {decision.decisionTx && wallet && (
+              <div className="max-w-md">
                 <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2">
                   {applicant.decision.approved.receiptLabel}
                 </div>
-                <div className="font-mono text-[11px] break-all mb-3">{decision.attestationHash}</div>
-                <a className="text-[12px]" target="_blank" rel="noopener"
-                   href={`https://chainscan.0g.ai/tx/${decision.decisionTx}`}>
-                  {applicant.decision.approved.viewChain} →
-                </a>
+                <VerifyOn0G slug={slug} wallet={wallet} />
               </div>
             )}
             <div className="mt-8 flex gap-6 text-[12px] tracking-[0.12em] uppercase">

@@ -35,10 +35,16 @@ build/
 coverage/
 .nyc_output/
 
-# Local
+# build-prompt scaffolding (local only)
 goal.md
+Goal.md
 prompt.md
+plan.md
+proposals/
+
+# Local
 .claude/
+video/
 backend/.image-cache/
 *.db
 *.db-wal

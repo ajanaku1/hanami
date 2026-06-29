@@ -1,0 +1,24 @@
+name: keepalive
+
+# Render's free tier spins the backend down after ~15 min idle, so a cold judge request can hang
+# for ~60s while it boots. This pings /health every 10 minutes to keep the instance warm during the
+# tournament window. (GitHub may delay scheduled runs under load and disables schedules on repos with
+# no activity for 60 days — pair with an external uptime monitor for belt-and-suspenders.)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health
+        run: |
+          url="${BACKEND_URL:-https://hanami-backend-ugak.onrender.com/health}"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 --retry 2 --retry-all-errors "$url")
+          echo "GET $url -> $code"
+          test "$code" = "200"
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}

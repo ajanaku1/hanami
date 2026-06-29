@@ -1,14 +1,16 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useAccount, useSignMessage } from "wagmi";
 import { Logo } from "@/components/Logo";
 import { admin } from "@/copy";
-import { api, type AdminPayload } from "@/lib/api";
+import { api, isAuthError, type AdminAuth, type AdminPayload, type Campaign } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
+import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ShareBar } from "@/components/ShareBar";
 import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
@@ -17,18 +19,57 @@ type Params = { slug: string };
 
 export default function AdminPage({ params }: { params: Promise<Params> }) {
   const { slug } = use(params);
-  const [data, setData] = useState<AdminPayload | null>(null);
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+
+  // Chrome + aggregate counts come from the public campaign endpoint (counts aren't sensitive —
+  // they already show on gallery cards). Only the per-applicant feed is gated.
+  const [meta, setMeta] = useState<Campaign | null>(null);
+  const [applicants, setApplicants] = useState<AdminPayload["applicants"] | null>(null);
+  const [auth, setAuth] = useState<AdminAuth | null>(null);
+  const [verifyWallet, setVerifyWallet] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const isPrivate = meta?.visibility === "private";
+  const isOwner = Boolean(isConnected && address && meta && address.toLowerCase() === meta.owner_address.toLowerCase());
+  const locked = Boolean(isPrivate && !auth);
+
+  const unlock = useCallback(async () => {
+    if (!isOwner || !address) return;
+    try {
+      const nonce = Date.now();
+      const sig = await signMessageAsync({ message: `Hanami: view ${slug} admin at ${nonce}` });
+      setAuth({ caller: address, nonce, sig });
+      setErr(null);
+    } catch (e) {
+      setErr(friendlyError(e));
+    }
+  }, [isOwner, address, signMessageAsync, slug]);
+
   useEffect(() => {
-    const tick = () => api.getAdmin(slug).then(setData).catch((e) => setErr(friendlyError(e)));
+    let stop = false;
+    const tick = async () => {
+      try {
+        const m = await api.getCampaign(slug);
+        if (stop) return;
+        setMeta(m);
+        if (m.visibility === "public" || auth) {
+          const payload = await api.getAdmin(slug, m.visibility === "private" ? auth ?? undefined : undefined);
+          if (!stop) setApplicants(payload.applicants);
+        }
+      } catch (e) {
+        if (stop) return;
+        if (isAuthError(e)) setAuth(null); // nonce expired mid-session → re-unlock
+        else setErr(friendlyError(e));
+      }
+    };
     tick();
     const id = setInterval(tick, 4000);
-    return () => clearInterval(id);
-  }, [slug]);
+    return () => { stop = true; clearInterval(id); };
+  }, [slug, auth]);
 
-  if (err && !data) return <Shell><p className="text-sm text-[var(--hanami-stamp)]">{err}</p></Shell>;
-  if (!data) return (
+  if (err && !meta) return <Shell><p className="text-sm text-[var(--hanami-stamp)]">{err}</p></Shell>;
+  if (!meta) return (
     <Shell>
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
         <div className="aspect-[0.72/1] bg-[var(--hanami-paper-soft)] border border-[var(--hanami-rule)] animate-pulse" />
@@ -48,7 +89,12 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
     </Shell>
   );
 
-  const { campaign, applicants, counts } = data;
+  const campaign = meta;
+  const counts = {
+    approved: campaign.approved_count,
+    rejected: campaign.rejected_count,
+    pending: campaign.pending_count,
+  };
 
   return (
     <Shell>
@@ -70,6 +116,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
             <Row k="persona" v={campaign.persona_uri} />
             {campaign.lorebook_uri && <Row k="lorebook" v={campaign.lorebook_uri} />}
             <Row k="cap" v={`${counts.approved} / ${campaign.wl_size_cap}`} />
+            <Row k="rep" v={`${campaign.rep_score} on-chain · approvals across all campaigns`} />
           </dl>
         </aside>
 
@@ -87,7 +134,29 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
           </div>
 
           <h2 className="font-serif text-[24px] mb-4">{admin.liveFeedHeading}</h2>
-          {applicants.length === 0 ? (
+          {locked ? (
+            <div className="border border-[var(--hanami-rule)] p-6 max-w-[58ch]">
+              <p className="text-sm text-[var(--hanami-ink-soft)] mb-4">
+                This bouncer is private. The applicant feed — wallets and decisions — is sealed.
+                Prove you own it to unlock the feed; aggregate counts above stay public.
+              </p>
+              {isOwner ? (
+                <button
+                  onClick={unlock}
+                  className="border border-[var(--hanami-rule)] px-4 py-2 text-[11px] tracking-[0.16em] uppercase hover:border-[var(--hanami-ink)] transition-colors"
+                >
+                  unlock with owner signature
+                </button>
+              ) : (
+                <p className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)]">
+                  connect the owner wallet to view
+                </p>
+              )}
+              {err && <p className="mt-3 text-[11px] font-mono text-[var(--hanami-stamp)]">{err}</p>}
+            </div>
+          ) : applicants === null ? (
+            <p className="text-[var(--hanami-ink-soft)] text-sm">loading feed…</p>
+          ) : applicants.length === 0 ? (
             <p className="text-[var(--hanami-ink-soft)] text-sm">{admin.emptyFeed}</p>
           ) : (
             <table className="w-full text-sm">
@@ -109,7 +178,15 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
                       : "text-[var(--hanami-ink-soft)]"
                     }`}>{a.decision ?? "in progress"}</td>
                     <td className="py-2.5 font-mono text-[11px] text-[var(--hanami-ink-soft)]">
-                      {a.attestation_hash ? `${a.attestation_hash.slice(0, 12)}…` : "—"}
+                      {a.attestation_hash ? (
+                        <button
+                          onClick={() => setVerifyWallet(w => w === a.wallet_address ? null : a.wallet_address)}
+                          className="hover:text-[var(--hanami-ink)] transition-colors"
+                          title="recompute & verify on 0G"
+                        >
+                          {a.attestation_hash.slice(0, 12)}… <span className="text-[var(--hanami-sakura)]">verify</span>
+                        </button>
+                      ) : "—"}
                     </td>
                     <td className="py-2.5 font-mono text-[11px]">
                       {a.decision_tx
@@ -120,6 +197,15 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
                 ))}
               </tbody>
             </table>
+          )}
+
+          {verifyWallet && (
+            <div className="mt-6">
+              <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2 font-mono">
+                verify {verifyWallet.slice(0, 8)}…{verifyWallet.slice(-6)}
+              </div>
+              <VerifyOn0G slug={campaign.slug} wallet={verifyWallet} />
+            </div>
           )}
 
           <hr className="my-16 border-[var(--hanami-rule)]" />
