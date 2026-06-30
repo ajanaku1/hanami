@@ -17,21 +17,40 @@ type ChatResponse = {
   x_0g_trace: Trace;
 };
 
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 5): Promise<Response> {
+// Per-attempt deadline. Node's fetch has NO default timeout, so a router that accepts the
+// connection but never responds would hang the whole turn forever (frontend stuck "thinking").
+// AbortSignal.timeout bounds each attempt; a timed-out attempt is treated as transient and retried.
+const ATTEMPT_TIMEOUT_MS = 45_000;
+
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 4): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
-    try { return await fetch(url, init); }
-    catch (e) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) });
+      // 5xx from the router is a transient outage ("try again in 30 seconds") — retry instead of
+      // surfacing it as a hard error. 4xx is a real client error; return it for the caller to throw.
+      if (res.status >= 500 && i < attempts - 1) {
+        await backoff(i);
+        continue;
+      }
+      return res;
+    } catch (e) {
       lastErr = e;
       const msg = (e as { message?: string })?.message ?? "";
+      const name = (e as { name?: string })?.name ?? "";
       const code = (e as { cause?: { code?: string } })?.cause?.code ?? "";
-      // any node fetch failure is transient on this testnet — retry them all
-      const transient = msg.includes("fetch failed") || /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR/.test(code);
-      if (!transient) throw e;
-      await new Promise((r) => setTimeout(r, 2000 * Math.pow(2, i))); // 2s, 4s, 8s, 16s, 32s
+      // network failures and per-attempt timeouts are transient on this network — retry them all
+      const transient = name === "TimeoutError" || name === "AbortError" || msg.includes("fetch failed")
+        || /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR/.test(code);
+      if (!transient || i === attempts - 1) throw e;
+      await backoff(i);
     }
   }
   throw lastErr;
+}
+
+function backoff(attempt: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, 2000 * Math.pow(2, attempt))); // 2s, 4s, 8s
 }
 
 export async function chat(messages: ChatTurn[]): Promise<{ content: string; trace: Trace }> {

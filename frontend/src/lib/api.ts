@@ -1,10 +1,23 @@
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
 
+// Hard ceiling so a stalled backend can never leave the UI spinning forever. Generous because a
+// decision turn legitimately chains 0G inference + storage uploads + on-chain txs.
+const REQUEST_TIMEOUT_MS = 180_000;
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if ((e as Error)?.name === "TimeoutError") {
+      throw new Error(`timeout ${path}: the bouncer took too long to respond — please try again`);
+    }
+    throw e;
+  }
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status} ${path}: ${body}`);
