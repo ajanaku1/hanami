@@ -601,10 +601,26 @@ app.get("/api/image/:root", async (c) => {
   }
 });
 
+// Persona/lorebook blobs are content-addressed by 0G Storage root hash and immutable, so a given
+// root always decodes to the same text — safe to cache for the process lifetime. Without this,
+// every bouncer greeting AND every chat turn re-downloaded persona + lorebook from the storage
+// indexer, hammering the network and stacking buffers on the 512MB instance. Bounded with simple
+// FIFO eviction so a workspace with thousands of campaigns can't grow the cache without limit.
+const textCache = new Map<string, string>();
+const TEXT_CACHE_MAX = 200;
+
 async function fetchText(uri: string): Promise<string> {
   if (!uri.startsWith("0g://")) return "";
   const root = uri.replace("0g://", "");
-  return (await readByRoot(root)).toString("utf8");
+  const cached = textCache.get(root);
+  if (cached !== undefined) return cached;
+  const text = (await readByRoot(root)).toString("utf8");
+  if (textCache.size >= TEXT_CACHE_MAX) {
+    const oldest = textCache.keys().next().value;
+    if (oldest !== undefined) textCache.delete(oldest);
+  }
+  textCache.set(root, text);
+  return text;
 }
 
 await initDb();

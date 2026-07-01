@@ -15,6 +15,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Free tier is a 512MB container. Cap V8's old-space below that so the runtime GCs harder
+      # and surfaces a catchable allocation error instead of the host OOM-killing the process
+      # (which shows up as "Instance failed" in the Render Events feed and drops all traffic).
+      - key: NODE_OPTIONS
+        value: "--max-old-space-size=460"
       - key: OG_ROUTER_API_KEY
         sync: false
       - key: OG_ROUTER_BASE_URL

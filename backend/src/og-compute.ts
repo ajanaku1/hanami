@@ -20,9 +20,12 @@ type ChatResponse = {
 // Per-attempt deadline. Node's fetch has NO default timeout, so a router that accepts the
 // connection but never responds would hang the whole turn forever (frontend stuck "thinking").
 // AbortSignal.timeout bounds each attempt; a timed-out attempt is treated as transient and retried.
-const ATTEMPT_TIMEOUT_MS = 45_000;
+// Kept deliberately tight: the backend runs on a single 512MB Render instance, so a router outage
+// that leaves many requests hanging for minutes each piles up in-flight buffers and OOM-kills the
+// box. 2 attempts × 20s + one 2s backoff caps a stuck turn at ~42s instead of ~194s.
+const ATTEMPT_TIMEOUT_MS = 20_000;
 
-async function fetchWithRetry(url: string, init: RequestInit, attempts = 4): Promise<Response> {
+async function fetchWithRetry(url: string, init: RequestInit, attempts = 2): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
