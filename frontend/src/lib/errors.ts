@@ -6,7 +6,15 @@ export function friendlyError(e: unknown): string {
   if (/429|rate.limit|too.many.requests/i.test(raw)) {
     return "Take a breath — the bouncer is at its rate limit. Try again in a few seconds.";
   }
-  if (/fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|network/i.test(raw)) {
+  if (/^timeout |took too long/i.test(raw)) {
+    return "The bouncer is waking up (the venue's been quiet). Give it a few seconds and send that again.";
+  }
+  // 503 = backend classified this as transient (cold start, upstream 5xx, or a 0G blob still
+  // replicating). Distinct from a hard network failure so we can tell the applicant to just retry.
+  if (/^503\b|No locations found/i.test(raw)) {
+    return "The bouncer is just getting to their feet. Give it a moment and try again.";
+  }
+  if (/fetch failed|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|network/i.test(raw)) {
     return "Network blip. Try sending that again.";
   }
   if (/tee_verified|TEE verification failed/i.test(raw)) {

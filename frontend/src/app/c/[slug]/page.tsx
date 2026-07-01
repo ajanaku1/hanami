@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { useAccount } from "wagmi";
 import { applicant } from "@/copy";
-import { api, type Campaign, type TurnResult } from "@/lib/api";
+import { api, warmBackend, type Campaign, type TurnResult } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { Portrait, pickVariant } from "@/components/Portrait";
 import { Seal } from "@/components/Seal";
@@ -28,6 +28,11 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const [err, setErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wallet = address ?? "";
+
+  // Warm the (free-tier) backend the moment the page opens so it wakes in the background instead of
+  // the applicant's first message eating a 30–60s cold start. Fire-and-forget; getCampaign below
+  // retries transient failures on its own if the box is still coming up.
+  useEffect(() => { void warmBackend(); }, []);
 
   useEffect(() => {
     api.getCampaign(slug).then(setCampaign).catch((e) => setErr(friendlyError(e)));

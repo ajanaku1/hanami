@@ -25,6 +25,40 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Ping the backend so it's awake before the first real call. Render's free tier sleeps after
+// ~15 min idle and takes 30–60s to wake, so if the greeting is the request that eats the cold
+// start it errors on the visitor. Firing /health on page mount lets the box warm in the
+// background. Best-effort — never throws, so a warm-up failure stays invisible.
+export async function warmBackend(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(60_000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// A backend-classified 503 (transient), a timeout, or a raw network failure on the first request
+// after idle usually means the box was still waking. call() encodes the status at the start of the
+// message, so we can detect those cheaply.
+function isTransient(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e ?? "");
+  return /^503\b|^timeout |fetch failed|Failed to fetch|NetworkError|ECONNRESET/i.test(m);
+}
+
+// Retry-once wrapper for IDEMPOTENT calls only. Safe for /begin — replaying it returns the already
+// stored greeting instead of generating a second one. NOT used for /turns, which appends the
+// applicant's message before calling the router; a blind retry there would duplicate the turn.
+async function callIdempotent<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await call<T>(path, init);
+  } catch (e) {
+    if (!isTransient(e)) throw e;
+    await new Promise((r) => setTimeout(r, 3000)); // brief pause to let a cold box finish waking
+    return call<T>(path, init);
+  }
+}
+
 export type PrepareCampaignBody = {
   slug: string;
   persona: string;
@@ -148,7 +182,7 @@ export const api = {
     call<PrepareCampaignResult>("/api/campaigns/prepare", { method: "POST", body: JSON.stringify(body) }),
   indexCampaign: (body: IndexCampaignBody) =>
     call<CreateCampaignResult>("/api/campaigns/index", { method: "POST", body: JSON.stringify(body) }),
-  getCampaign: (slug: string) => call<Campaign>(`/api/campaigns/${slug}`),
+  getCampaign: (slug: string) => callIdempotent<Campaign>(`/api/campaigns/${slug}`),
   listCampaignsByOwner: (owner: string) =>
     call<{ campaigns: Campaign[] }>(`/api/campaigns?owner=${owner}`),
   listAllCampaigns: () =>
@@ -165,7 +199,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   beginChat: (slug: string, walletAddress: string) =>
-    call<{ reply: string }>(`/api/campaigns/${slug}/begin`, {
+    callIdempotent<{ reply: string }>(`/api/campaigns/${slug}/begin`, {
       method: "POST",
       body: JSON.stringify({ walletAddress }),
     }),

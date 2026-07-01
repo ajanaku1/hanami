@@ -50,6 +50,20 @@ app.use("/api/campaigns/prepare", rateLimit({ key: "prepare", limit: 5, windowMs
 app.use("/api/campaigns/:slug/begin", rateLimit({ key: "begin", limit: 10, windowMs: 60_000 }));
 app.use("/api/campaigns/:slug/turns", rateLimit({ key: "turns", limit: 30, windowMs: 60_000 }));
 
+// Surface the real failure reason to the client. Without this, any throw from the 0G Compute
+// router, 0G Storage, or an on-chain tx bubbles to Hono's default handler as an opaque
+// "500 Internal Server Error", which the UI can only render as a generic "network blip" — making
+// a transient upstream outage (or a cold-start wake-up) look like a permanent client bug. We log
+// the full error server-side and return a short, classified message the frontend can map to copy.
+app.onError((err, c) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[${c.req.method} ${c.req.path}]`, err);
+  // A 5xx from an upstream, a per-attempt timeout, a network reset, or a not-yet-replicated 0G
+  // Storage blob are all transient — tell the client it's safe to retry rather than giving up.
+  const transient = /router 5\d\d|timeout|fetch failed|TimeoutError|AbortError|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|UND_ERR|No locations found|could not detect network|SERVER_ERROR/i.test(msg);
+  return c.json({ error: msg, transient }, transient ? 503 : 500);
+});
+
 const backendAddress = privateKeyToAccount(process.env.DEPLOYER_PRIVATE_KEY as Hex).address;
 
 app.get("/health", (c) => c.json({

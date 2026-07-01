@@ -1,13 +1,20 @@
 name: keepalive
 
-# Render's free tier spins the backend down after ~15 min idle, so a cold judge request can hang
-# for ~60s while it boots. This pings /health every 10 minutes to keep the instance warm during the
-# tournament window. (GitHub may delay scheduled runs under load and disables schedules on repos with
-# no activity for 60 days — pair with an external uptime monitor for belt-and-suspenders.)
+# Render's free tier spins the backend down after ~15 min idle, so a cold request can hang for 60s+
+# while it boots (and the first wake after hours asleep can exceed 90s — see the run history). This
+# pings /health to keep the instance warm.
+#
+# IMPORTANT: GitHub throttles scheduled workflows hard on lower-activity repos and delays runs at the
+# top-of-hour crons the most — in practice this fires far less often than the cron says (multi-hour
+# gaps observed), during which the box sleeps. The cron below runs every 5 min AND is offset off the
+# :00/:05 boundaries to dodge the worst of the throttling, but GitHub Actions is still NOT a reliable
+# keepalive on its own. For a box that must stay warm, pair this with an external uptime monitor that
+# pings the same /health URL every 5 min (e.g. UptimeRobot / cron-job.org — both have free tiers).
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # every 5 min, offset by 3 to avoid the heavily-throttled top-of-hour slots
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -17,7 +24,10 @@ jobs:
       - name: Ping backend health
         run: |
           url="${BACKEND_URL:-https://hanami-backend-ugak.onrender.com/health}"
-          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 90 --retry 2 --retry-all-errors "$url")
+          # Generous timeout + retries: a box that has been asleep for hours can take >90s to wake, and
+          # even a slow/failed response still sends the traffic that triggers the wake. Retry so a single
+          # cold-start hiccup doesn't drop the ping and let the instance settle back to sleep.
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 150 --retry 3 --retry-delay 5 --retry-all-errors "$url")
           echo "GET $url -> $code"
           test "$code" = "200"
         env:
