@@ -264,6 +264,21 @@ const turnBody = z.object({
 type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null; bouncer_token_id: number };
 type ApplicantRow = { id: number; decision: string | null };
 
+// Race-safe applicant upsert. Two concurrent requests for the same wallet (double-mount, page
+// reload, or a client retry landing while the first is still in-flight on a cold box) can both find
+// no row and both INSERT, tripping UNIQUE(campaign_slug, wallet_address) on the loser. ON CONFLICT
+// makes the loser a no-op; the row exists either way, so we read it back to get its id + decision.
+async function ensureApplicant(slug: string, wallet: string): Promise<ApplicantRow> {
+  const w = wallet.toLowerCase();
+  await run(`INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)
+             ON CONFLICT(campaign_slug, wallet_address) DO NOTHING`,
+    [slug, w, Math.floor(Date.now() / 1000)]);
+  const row = await get<ApplicantRow>(
+    "SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?", [slug, w]);
+  if (!row) throw new Error("failed to upsert applicant");
+  return row;
+}
+
 const beginBody = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
 });
@@ -279,18 +294,8 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
   const campaign = await get<CampaignRow>("SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "campaign not found" }, 404);
 
-  let applicant = await get<ApplicantRow>(
-    "SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
-    [slug, walletAddress.toLowerCase()],
-  );
-
-  if (applicant?.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
-
-  if (!applicant) {
-    const info = await run("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)",
-      [slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000)]);
-    applicant = { id: Number(info.lastInsertRowid), decision: null };
-  }
+  const applicant = await ensureApplicant(slug, walletAddress);
+  if (applicant.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
 
   const existing = await get<{ content: string }>(
     "SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'",
@@ -303,11 +308,20 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
 
   const turn = await bouncerGreeting(personaText, lorebookText);
 
+  // Race-safe: the existence check above and this insert straddle the slow greeting call, so two
+  // concurrent /begin calls can both reach here. ON CONFLICT turns the loser into a no-op instead of
+  // a UNIQUE(applicant_id, turn_index) 500; we then read back whichever greeting won and return that,
+  // so both callers see the same opening line.
   await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
-             VALUES (?, 0, 'bouncer', ?, ?, ?, ?, ?)`,
+             VALUES (?, 0, 'bouncer', ?, ?, ?, ?, ?)
+             ON CONFLICT(applicant_id, turn_index) DO NOTHING`,
     [applicant.id, turn.reply, turn.trace.request_id, turn.trace.provider, turn.trace.tee_verified ? 1 : 0, Math.floor(Date.now() / 1000)]);
+  const stored = await get<{ content: string }>(
+    "SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'",
+    [applicant.id],
+  );
 
-  return c.json({ reply: turn.reply });
+  return c.json({ reply: stored?.content ?? turn.reply });
 });
 
 app.post("/api/campaigns/:slug/turns", async (c) => {
@@ -319,18 +333,8 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
   const campaign = await get<CampaignRow>("SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "campaign not found" }, 404);
 
-  let applicant = await get<ApplicantRow>(
-    "SELECT id, decision FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
-    [slug, walletAddress.toLowerCase()],
-  );
-
-  if (applicant?.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
-
-  if (!applicant) {
-    const info = await run("INSERT INTO applicants (campaign_slug, wallet_address, started_at) VALUES (?, ?, ?)",
-      [slug, walletAddress.toLowerCase(), Math.floor(Date.now() / 1000)]);
-    applicant = { id: Number(info.lastInsertRowid), decision: null };
-  }
+  const applicant = await ensureApplicant(slug, walletAddress);
+  if (applicant.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
 
   const nextRow = await get<{ next: number }>(
     "SELECT COALESCE(MAX(turn_index), -1) + 1 AS next FROM turns WHERE applicant_id = ?",
