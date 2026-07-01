@@ -12,7 +12,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import type { Trace } from "./og-compute.js";
+import type { Trace, Attestation } from "./og-compute.js";
 
 export const zeroG = defineChain({
   id: 16661,
@@ -101,6 +101,17 @@ export function attestationHashFromTrace(trace: Trace): Hex {
   );
 }
 
+// The bytes32 that lands on chain per decision. The Campaign contract treats it as opaque, so the
+// derivation can differ by attestation kind without a contract change:
+//   - tee-signature: keccak256 of the provider's raw TEE signature. A verifier recomputes this AND
+//     recovers the signature to the provider's on-chain teeSignerAddress — cryptographic proof the
+//     enclave signed, no trust in the Router.
+//   - router: keccak of the Router's trace fields (the Router is trusted to have checked the TEE).
+export function attestationHashFor(att: Attestation): Hex {
+  if (att.kind === "tee-signature") return keccak256(att.signature as Hex);
+  return attestationHashFromTrace(att.trace);
+}
+
 export async function mintBouncer(personaURI: string, lorebookURI: string, imageURI: string): Promise<{ txHash: Hex; tokenId: bigint }> {
   const txHash = await wallet.writeContract({
     address: BOUNCER_REGISTRY,
@@ -155,10 +166,10 @@ export async function recordDecision(
   applicant: Address,
   approve: boolean,
   reasoning: string,
-  trace: Trace,
+  attestation: Attestation,
 ): Promise<RecordedDecision> {
   const reasoningHash = keccak256(`0x${Buffer.from(reasoning, "utf8").toString("hex")}` as Hex);
-  const attestationHash = attestationHashFromTrace(trace);
+  const attestationHash = attestationHashFor(attestation);
   const txHash = await wallet.writeContract({
     address: campaign,
     abi: campaignAbi,

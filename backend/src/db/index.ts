@@ -34,6 +34,9 @@ export async function initDb(): Promise<void> {
   if (!hasApp("transcript_uri")) {
     await db.execute("ALTER TABLE applicants ADD COLUMN transcript_uri TEXT");
   }
+  if (!hasApp("attestation_json")) {
+    await db.execute("ALTER TABLE applicants ADD COLUMN attestation_json TEXT");
+  }
 }
 
 /// libSQL Row objects don't JSON-serialize cleanly, so we flatten each row into a plain

@@ -28,6 +28,14 @@ services:
         value: 0GM-1.0-35B-A3B
       - key: OG_ROUTER_IMAGE_MODEL
         value: z-image
+      # Direct-broker path for the decision turn — TEE-signed inference whose signature recovers to
+      # the provider's on-chain teeSignerAddress (Router removed from the trust base). Off by default;
+      # set OG_DIRECT_ENABLED=true only with a funded 0G Compute ledger for DEPLOYER_PRIVATE_KEY and a
+      # provider address in OG_DIRECT_PROVIDER. If unset or unfunded, decisions fall back to the Router.
+      - key: OG_DIRECT_ENABLED
+        value: "false"
+      - key: OG_DIRECT_PROVIDER
+        sync: false
       - key: OG_RPC_URL
         value: https://evmrpc.0g.ai
       - key: OG_INDEXER_RPC

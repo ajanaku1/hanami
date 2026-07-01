@@ -30,7 +30,7 @@ console.log("   campaign:", camp.campaign, "tx:", camp.txHash);
 
 console.log("6. recording a decision with synthetic TEE trace...");
 const fakeTrace = { request_id: "smoke-test-uuid", provider: backend, tee_verified: true };
-const dec = await recordDecision(camp.campaign, "0x0000000000000000000000000000000000000001", true, "thoughtful answer", fakeTrace);
+const dec = await recordDecision(camp.campaign, "0x0000000000000000000000000000000000000001", true, "thoughtful answer", { kind: "router", trace: fakeTrace });
 console.log("   tx:", dec.txHash);
 console.log("   attestationHash:", dec.attestationHash);
 console.log("   reasoningHash:", dec.reasoningHash);

@@ -170,12 +170,19 @@ export type MerkleExportResult = {
 
 export type FinalizeBody = { signature: string; caller: string; nonce: number };
 
-export type VerifyResult = {
+type VerifyBase = {
   decision: "approved" | "rejected";
   decisionTx: string | null;
   attestationHash: string;
-  trace: { requestId: string; provider: string; teeVerified: boolean };
 };
+// "router": recompute keccak of the x_0g_trace. "tee-signature": recompute keccak of the provider's
+// signature AND recover it to the provider's on-chain teeSignerAddress (stronger — Router not trusted).
+export type VerifyResult =
+  | (VerifyBase & { kind?: "router"; trace: { requestId: string; provider: string; teeVerified: boolean } })
+  | (VerifyBase & {
+      kind: "tee-signature";
+      signature: { text: string; signature: string; signingAddress: string; provider: string; chatId: string; model: string };
+    });
 
 export const api = {
   prepareCampaign: (body: PrepareCampaignBody) =>

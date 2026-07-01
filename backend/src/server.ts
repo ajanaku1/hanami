@@ -9,7 +9,7 @@ import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
 import { recordDecision, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
 import { buildExport } from "./merkle.js";
-import type { ChatTurn } from "./og-compute.js";
+import type { ChatTurn, Attestation } from "./og-compute.js";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
@@ -387,10 +387,10 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     walletAddress as `0x${string}`,
     turn.decision.kind === "approve",
     turn.decision.reasoning || turn.reply,
-    turn.trace,
+    turn.attestation,
   );
 
-  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, transcript_uri = ?, attestation_hash = ?, finished_at = ?
+  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, transcript_uri = ?, attestation_hash = ?, attestation_json = ?, finished_at = ?
              WHERE id = ?`,
     [
       turn.decision.kind === "approve" ? "approved" : "rejected",
@@ -398,6 +398,7 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
       `0g://${reasoningUp.rootHash}`,
       `0g://${transcriptUp.rootHash}`,
       recorded.attestationHash,
+      JSON.stringify(turn.attestation),
       Math.floor(Date.now() / 1000),
       applicant.id,
     ]);
@@ -523,43 +524,55 @@ app.get("/api/campaigns/:slug/admin", async (c) => {
   return c.json({ campaign, applicants, counts });
 });
 
-// TEE attestation receipt for one decision. Returns the raw x_0g_trace components the on-chain
-// attestationHash was derived from, so a verifier can recompute keccak256(abi.encode(
-// keccak256(requestId), provider, teeVerified)) themselves and match it against the recorded hash
-// (and the decision tx on chainscan). All values are already public on-chain — this just packages
-// them for the in-UI "Verify on 0G" proof. No wallet needed.
+// TEE attestation receipt for one decision, packaged for the in-UI "Verify on 0G" proof (no wallet).
+// Two shapes, matching how the decision was attested (see backend Attestation type):
+//   - "tee-signature": the decision inference ran through the Direct broker. Returns the signed text,
+//     the provider's signature, and the provider's on-chain teeSignerAddress. A verifier recomputes
+//     keccak256(signature) to match the on-chain hash AND recovers the signature to signingAddress —
+//     proof the enclave signed, with the Router out of the trust base.
+//   - "router": the decision came from the Router. Returns the x_0g_trace so a verifier recomputes
+//     keccak256(abi.encode(keccak256(requestId), provider, teeVerified)) and matches it on chain.
+// All values are already public on-chain — this just packages them.
 app.get("/api/campaigns/:slug/verify/:wallet", async (c) => {
   const slug = c.req.param("slug");
   const wallet = c.req.param("wallet");
   if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) return c.json({ error: "invalid wallet" }, 400);
 
-  const applicant = await get<{ id: number; decision: string | null; decision_tx: string | null; attestation_hash: string | null }>(
-    "SELECT id, decision, decision_tx, attestation_hash FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
+  const applicant = await get<{ id: number; decision: string | null; decision_tx: string | null; attestation_hash: string | null; attestation_json: string | null }>(
+    "SELECT id, decision, decision_tx, attestation_hash, attestation_json FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
     [slug, wallet.toLowerCase()],
   );
   if (!applicant) return c.json({ error: "no application found" }, 404);
   if (!applicant.decision || !applicant.attestation_hash) return c.json({ error: "no decision yet" }, 409);
 
-  // The decision was computed from the final bouncer turn's trace — the highest-indexed bouncer
-  // turn carrying a router request id.
+  const base = { decision: applicant.decision, decisionTx: applicant.decision_tx, attestationHash: applicant.attestation_hash };
+  const att = applicant.attestation_json ? (JSON.parse(applicant.attestation_json) as Attestation) : null;
+
+  if (att?.kind === "tee-signature") {
+    return c.json({
+      ...base,
+      kind: "tee-signature",
+      signature: { text: att.text, signature: att.signature, signingAddress: att.signingAddress, provider: att.provider, chatId: att.chatId, model: att.model },
+    });
+  }
+
+  // Router path (legacy rows have no attestation_json): reconstruct the trace from the final attested
+  // bouncer turn — the highest-indexed one carrying a router request id.
   const decisionTurn = await get<{ router_request_id: string; provider: string; tee_verified: number }>(
     `SELECT router_request_id, provider, tee_verified FROM turns
      WHERE applicant_id = ? AND role = 'bouncer' AND router_request_id IS NOT NULL
      ORDER BY turn_index DESC LIMIT 1`,
     [applicant.id],
   );
-  if (!decisionTurn) return c.json({ error: "no attested turn on record" }, 404);
-
-  return c.json({
-    decision: applicant.decision,
-    decisionTx: applicant.decision_tx,
-    attestationHash: applicant.attestation_hash,
-    trace: {
-      requestId: decisionTurn.router_request_id,
-      provider: decisionTurn.provider,
-      teeVerified: decisionTurn.tee_verified === 1,
-    },
-  });
+  if (att?.kind === "router") {
+    const { request_id: requestId, provider, tee_verified: teeVerified } = att.trace;
+    return c.json({ ...base, kind: "router", trace: { requestId, provider, teeVerified } });
+  }
+  if (decisionTurn) {
+    const trace = { requestId: decisionTurn.router_request_id, provider: decisionTurn.provider, teeVerified: decisionTurn.tee_verified === 1 };
+    return c.json({ ...base, kind: "router", trace });
+  }
+  return c.json({ error: "no attested turn on record" }, 404);
 });
 
 // Admin-only: backfill the image cache. Used by the seed-bouncer script when it ran

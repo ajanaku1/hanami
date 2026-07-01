@@ -10,6 +10,26 @@ export type Trace = {
   tee_verified: boolean;
 };
 
+// How a decision's TEE provenance is proven on chain.
+//
+// - "router": the Router API verified the enclave server-side and returned a boolean. We bind the
+//   trace fields on chain (keccak of request_id/provider/tee_verified). The Router is trusted.
+// - "tee-signature": the decision inference ran through the 0G Compute Direct broker, which returns
+//   the provider's raw signature over the response. We bind that signature on chain, and anyone can
+//   recover it to the provider's on-chain-registered teeSignerAddress offline — the Router is NOT in
+//   the trust base. Used for the deciding turn; falls back to "router" if the broker is unavailable.
+export type RouterAttestation = { kind: "router"; trace: Trace };
+export type TeeSignatureAttestation = {
+  kind: "tee-signature";
+  text: string;          // exact message the enclave signed (recover target)
+  signature: string;     // provider's TEE signature over `text`
+  signingAddress: string; // provider's on-chain-registered teeSignerAddress
+  provider: string;
+  chatId: string;
+  model: string;
+};
+export type Attestation = RouterAttestation | TeeSignatureAttestation;
+
 export type ChatTurn = { role: "system" | "user" | "assistant"; content: string };
 
 type ChatResponse = {

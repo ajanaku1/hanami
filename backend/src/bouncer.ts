@@ -1,10 +1,32 @@
-import { chat, type ChatTurn, type Trace } from "./og-compute.js";
+import { chat, type ChatTurn, type Trace, type Attestation } from "./og-compute.js";
+import { chatDirectSigned, directEnabled } from "./og-compute-direct.js";
 
 const MIN_TURNS = 3;
 const MAX_TURNS = 6;
 
 export type Decision = { kind: "approve" | "reject"; reasoning: string };
-export type BouncerTurn = { reply: string; trace: Trace; decision: Decision | null };
+export type BouncerTurn = { reply: string; trace: Trace; decision: Decision | null; attestation: Attestation };
+
+// Run one inference. When the turn could carry a verdict (`allowDirect`) and the Direct broker is
+// configured, route it through the TEE-signed path so the reply the applicant sees — and the
+// decision recorded on chain — carries a provider signature anyone can re-verify offline. Any Direct
+// failure (unfunded ledger, provider down) transparently falls back to the Router path.
+async function infer(
+  messages: ChatTurn[],
+  allowDirect: boolean,
+): Promise<{ content: string; trace: Trace; attestation: Attestation }> {
+  if (allowDirect && directEnabled()) {
+    try {
+      const { content, attestation } = await chatDirectSigned(messages);
+      const trace: Trace = { request_id: attestation.chatId, provider: attestation.provider, tee_verified: true };
+      return { content, trace, attestation };
+    } catch (err) {
+      console.error("direct signed inference failed, falling back to Router:", (err as Error).message);
+    }
+  }
+  const { content, trace } = await chat(messages);
+  return { content, trace, attestation: { kind: "router", trace } };
+}
 
 export type BouncerInput = {
   persona: string;
@@ -90,12 +112,12 @@ export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
     ...input.history,
   ];
 
-  const { content, trace } = await chat(messages);
+  const { content, trace, attestation } = await infer(messages, mayDecide);
   let decision = parseDecisionTag(content);
   if (mustDecide && !decision) {
     decision = { kind: "reject", reasoning: "Conversation exhausted without a clear verdict." };
   }
-  return { reply: content, trace, decision };
+  return { reply: content, trace, decision, attestation };
 }
 
 /// Opening turn: the bouncer speaks first. Used when an applicant connects but hasn't typed yet.
@@ -115,5 +137,5 @@ export async function bouncerGreeting(persona: string, lorebook: string): Promis
   const { content, trace } = await chat(messages);
   // Defensive: strip any accidental decision tag so the greeting never closes the conversation.
   const reply = content.replace(/<DECISION:(APPROVE|REJECT)>/g, "").trim();
-  return { reply, trace, decision: null };
+  return { reply, trace, decision: null, attestation: { kind: "router", trace } };
 }

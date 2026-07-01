@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS applicants (
   reasoning_uri   TEXT,                   -- 0g://rootHash of bouncer's final reasoning
   transcript_uri  TEXT,                   -- 0g://rootHash of the full conversation transcript (pinned at decision)
   attestation_hash TEXT,                  -- bytes32 hex, mirrors on-chain value
+  attestation_json TEXT,                  -- serialized Attestation (router trace | tee-signature bundle) for the verify proof
   UNIQUE(campaign_slug, wallet_address)   -- enforces one-attempt-per-wallet at API layer
 );
 
