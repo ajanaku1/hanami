@@ -8,6 +8,7 @@ An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. 
 [![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
 [![Tests](https://img.shields.io/badge/foundry_tests-16_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![0G Bridge](https://img.shields.io/badge/0G_Bridge-AKINDO-8B5CF6)](https://akindo.io)
 
 ![Hanami architecture: user-signed mint, TEE-attested screening, chain-agnostic Merkle export](docs/architecture.png)
 
@@ -25,16 +26,36 @@ Hanami is a Zero Cup tournament entry, built AI-native on 0G. It cleared the Gro
 
 Most entries lean on a single 0G primitive. Hanami's trust model only works because all three are load-bearing: the bouncer reasons inside a TEE on **0G Compute**, its persona and every transcript are content-addressed on **0G Storage**, and each decision lands on **0G Chain** carrying the attestation hash that proves the inference ran in a sealed enclave. Remove any one and the product stops being verifiable.
 
+## 0G Bridge Buildathon
+
+Hanami is also submitted to the **0G Bridge Buildathon by AKINDO**, a 10-week, 5-Wave program for builders shipping AI × Onchain applications on 0G. It arrived with all three 0G pillars already integrated and live on mainnet (chain 16661), having previously advanced to the **Round of 32** in the Zero Cup 2026 tournament.
+
+| | |
+|---|---|
+| **Category** | AI Agents / Trust & Safety |
+| **0G modules** | Compute (TEE inference + image), Storage (persona, lorebook, portrait, transcripts), Chain (ERC-7857 Agentic ID + decision log) |
+| **Status** | Live on 0G mainnet, both contracts verified, existing user base |
+| **Previous** | Zero Cup 2026: Top 32 |
+
+### Submission readiness
+
+- **0G mainnet contract addresses:** `BouncerRegistry` at `0x764883319e51e46F683aB54D93F26bcBb74A7030`, `CampaignFactory` at `0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4`. Both verified on [Chainscan](https://chainscan.0g.ai/).
+- **Live demo:** [hanami-hazel.vercel.app](https://hanami-hazel.vercel.app). Mint a bouncer, apply as an applicant, run adversarial tests, export a Merkle root.
+- **Architecture diagram:** [`docs/architecture.png`](docs/architecture.png) with full data-flow walkthrough below.
+- **Demo script:** [`demo/script.md`](demo/script.md). A 3-minute walkthrough covering mint, chat, adversarial, admin, Merkle export.
+- **X post template:** [`demo/x-post.md`](demo/x-post.md). Ready with Bridge hashtags and tags.
+- **Reproduction:** see [Quick start](#quick-start). Two `npm install && npm run dev` and you're screening applicants locally against 0G mainnet.
+
 ## What's new for the Round of 32
 
 The tournament rewards improving between rounds. Since the Group Stage:
 
 - **Verify on 0G**: every decision screen has a one-click check that pulls the inference's `x_0g_trace`, recomputes `keccak256(requestId, provider, tee_verified)` in the browser, and shows it matching the hash on chain byte-for-byte. The attestation claim went from "trust the README" to a 15-second proof anyone can run, no wallet needed.
-- **Signed-enclave decision path, wired and ready**: alongside the live Router path, the decision turn can run through the **0G Compute Direct broker**, which returns the provider's raw TEE signature over the response. The on-chain attestation hash becomes `keccak256(signature)`, and the Verify-on-0G panel recovers that signature to the provider's on-chain-registered `teeSignerAddress` in the browser — cryptographic proof the enclave signed the decision, with the Router out of the trust base. The code is wired end to end and verified against 0G mainnet (provider discovery, signer status, offline recovery) but ships **disabled** (`OG_DIRECT_ENABLED=false`): activating it requires a standing 3 0G deposit in the Compute ledger, which we've chosen not to lock up for now. When enabled it's a drop-in — same `0GM-1.0-35B-A3B` model, transparent fallback to the Router if the ledger is unfunded or a provider is unreachable. See [Direct broker for the decision turn](#direct-broker-for-the-decision-turn-backendsrcog-compute-directts).
+- **Signed-enclave decision path, wired and ready**: alongside the live Router path, the decision turn can run through the **0G Compute Direct broker**, which returns the provider's raw TEE signature over the response. The on-chain attestation hash becomes `keccak256(signature)`, and the Verify-on-0G panel recovers that signature to the provider's on-chain-registered `teeSignerAddress` in the browser. Cryptographic proof the enclave signed the decision, with the Router out of the trust base. The code is wired end to end and verified against 0G mainnet (provider discovery, signer status, offline recovery) but ships **disabled** (`OG_DIRECT_ENABLED=false`): activating it requires a standing 3 0G deposit in the Compute ledger, which we've chosen not to lock up for now. When enabled it's a drop-in, same `0GM-1.0-35B-A3B` model, transparent fallback to the Router if the ledger is unfunded or a provider is unreachable. See [Direct broker for the decision turn](#direct-broker-for-the-decision-turn-backendsrcog-compute-directts).
 - **On-chain reputation, live**: each approval now calls `incrementRep` on the bouncer iNFT, so a bouncer accrues a verifiable track record that travels with the token across every campaign it runs. Previously declared on the contract but inert; now wired end to end.
 - **Transcripts pinned to 0G Storage**: the full conversation (not just the reasoning hash) is now content-addressed on Storage at decision time, with its rootHash on the decision record.
 - **Privacy gate**: a private campaign's applicant feed (wallets + decisions) now requires an owner signature; aggregate counts stay public.
-- **Hardening**: the real `tee_verified` flag is persisted per turn, a keepalive keeps the backend warm for judges, and the copy now matches the contract (the iNFT is a tradable ERC-721 whose reputation and history travel with it; the ERC-7857 sealed-key transfer path is a documented v1 limitation).
+- **Hardening**: the `tee_verified` flag is persisted per turn, a keepalive keeps the backend warm for judges, and the copy now matches the contract. The iNFT is a tradable ERC-721 whose reputation and history travel with it; the ERC-7857 sealed-key transfer path is a documented v1 limitation.
 
 ## Live demo
 
@@ -55,7 +76,7 @@ Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted direct
 - **AI bouncer you own**: each bouncer is an ERC-7857 iNFT minted to the project owner's wallet, not a service account Hanami controls.
 - **Persona-driven screening**: the owner writes the voice, taste, and fit criteria. The bouncer holds a 3–6 turn private conversation, then approves or rejects.
 - **TEE-attested decisions**: every approve and reject tx carries a `bytes32` attestation hash proving the inference ran inside a sealed enclave.
-- **Verify on 0G (in-app)**: any decision screen recomputes `keccak256(requestId, provider, tee_verified)` from the `x_0g_trace` in the browser and shows it matching the on-chain attestation hash byte-for-byte. A 15-second proof anyone can run, no wallet needed. (A stronger signature-recovery path via the Direct broker is wired and ready behind a flag — see [Direct broker for the decision turn](#direct-broker-for-the-decision-turn-backendsrcog-compute-directts).)
+- **Verify on 0G (in-app)**: any decision screen recomputes `keccak256(requestId, provider, tee_verified)` from the `x_0g_trace` in the browser and shows it matching the on-chain attestation hash byte-for-byte. A 15-second proof anyone can run, no wallet needed. (A stronger signature-recovery path via the Direct broker is wired and ready behind a flag; see [Direct broker for the decision turn](#direct-broker-for-the-decision-turn-backendsrcog-compute-directts).)
 - **On-chain receipt**: decision, reasoning hash, and attestation hash are recorded per applicant, inspectable on Chainscan without a wallet. The full conversation transcript is pinned to 0G Storage at decision time.
 - **On-chain reputation**: each approval increments the bouncer iNFT's `repScore`, so a verifiable track record accrues to the token and travels with it across campaigns.
 - **Chain-agnostic Merkle export**: close a campaign and export a root plus copy-paste Solidity that drops into an existing mint contract on Ethereum, Base, Arbitrum, OP, or 0G.
@@ -204,9 +225,9 @@ Each chat response comes back with an `x_0g_trace` object. We compute the on-cha
 
 #### Direct broker for the decision turn (`backend/src/og-compute-direct.ts`)
 
-The Router verifies the enclave server-side and returns a boolean — convenient, but it puts the Router in the trust base. For the **decision turn only** (the inference that emits a verdict and lands on chain), the code can instead route through the 0G Compute **Direct broker** (`@0gfoundation/0g-compute-ts-sdk`). The broker talks to a TEE provider directly and exposes the provider's raw signature over the response, plus the provider's on-chain-registered `teeSignerAddress`. We verify the signature recovers to that signer, set the on-chain attestation hash to `keccak256(signature)`, and store the `{ text, signature, signingAddress }` bundle so the Verify-on-0G panel can re-recover it in the browser. This is strictly stronger than the boolean: cryptographic proof the enclave signed the decision, verifiable offline with `recoverAddress(hashMessage(text), signature)`.
+The Router verifies the enclave server-side and returns a boolean. That's convenient, but it puts the Router in the trust base. For the **decision turn only** (the inference that emits a verdict and lands on chain), the code can instead route through the 0G Compute **Direct broker** (`@0gfoundation/0g-compute-ts-sdk`). The broker talks to a TEE provider directly and exposes the provider's raw signature over the response, plus the provider's on-chain-registered `teeSignerAddress`. We verify the signature recovers to that signer, set the on-chain attestation hash to `keccak256(signature)`, and store the `{ text, signature, signingAddress }` bundle so the Verify-on-0G panel can re-recover it in the browser. This is strictly stronger than the boolean: cryptographic proof the enclave signed the decision, verifiable offline with `recoverAddress(hashMessage(text), signature)`.
 
-**Status: wired and ready, shipped disabled.** The full path is implemented and verified against 0G mainnet — provider discovery, TEE signer status, and the offline recovery all check out against the live `0GM-1.0-35B-A3B` provider (`0x4870CbC4…a4E9`, signer `0x0038F716…DB2e8`). It ships **off** (`OG_DIRECT_ENABLED=false`) because a Direct-broker ledger requires a standing minimum deposit of **3 0G**, which we've chosen not to lock up. When enabled, only turns that can carry a verdict (turn 3+) use the broker; earlier turns stay on the fast Router. To turn it on: `npx tsx scripts/direct-broker-setup.ts fund=3` to create the ledger, then set `OG_DIRECT_ENABLED=true` and `OG_DIRECT_PROVIDER`. If it's disabled or a call fails (unfunded ledger, provider down), the deciding turn transparently falls back to the Router path and still produces a wallet-free hash-match proof, so the product never blocks on broker availability.
+**Status: wired and ready, shipped disabled.** The full path is implemented and verified against 0G mainnet. Provider discovery, TEE signer status, and the offline recovery all check out against the live `0GM-1.0-35B-A3B` provider (`0x4870CbC4…a4E9`, signer `0x0038F716…DB2e8`). It ships **off** (`OG_DIRECT_ENABLED=false`) because a Direct-broker ledger requires a standing minimum deposit of **3 0G**, which we've chosen not to lock up. When enabled, only turns that can carry a verdict (turn 3+) use the broker; earlier turns stay on the fast Router. To turn it on: `npx tsx scripts/direct-broker-setup.ts fund=3` to create the ledger, then set `OG_DIRECT_ENABLED=true` and `OG_DIRECT_PROVIDER`. If it's disabled or a call fails (unfunded ledger, provider down), the deciding turn transparently falls back to the Router path and still produces a wallet-free hash-match proof, so the product never blocks on broker availability.
 
 ### 0G Chain (`contracts/src/BouncerRegistry.sol` and `Campaign.sol`)
 
@@ -337,4 +358,4 @@ For the Round of 32 we added a frame rule that tells the bouncer not to over-rej
 
 ## License
 
-MIT. Built on 0G for the Zero Cup 2026 tournament.
+MIT. Built on 0G. Zero Cup 2026 Top 32 · 0G Bridge Buildathon by AKINDO.

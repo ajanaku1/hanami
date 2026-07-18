@@ -9,6 +9,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+!frontend/.env.example
 
 # Next.js
 .next/
@@ -44,6 +45,7 @@ proposals/
 
 # Local
 .claude/
+.Codex/
 video/
 backend/.image-cache/
 *.db
