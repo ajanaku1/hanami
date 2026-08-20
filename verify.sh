@@ -123,10 +123,12 @@ checksh live "deployed backend exposes the safety API contract" '
 '
 checksh live "recorded live run is passed and exposes a 0G report root" '
   test -f docs/wave3-submission.md &&
-  run_id=$(sed -n "s/.*Safety run ID: \\`\\([^\\`]*\\)\\`.*/\\1/p" docs/wave3-submission.md | head -n 1) &&
+  run_id=$(grep -m1 "Safety run ID:" docs/wave3-submission.md |
+    grep -Eo "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}") &&
   test -n "$run_id" &&
-  curl --max-time 30 -fsS "https://hanami-backend-ugak.onrender.com/api/safety-runs/$run_id" |
-    grep -Eq "\\\"status\\\":\\\"passed\\\".*\\\"reportRoot\\\":\\\"0x[0-9a-fA-F]{64}\\\""
+  body=$(curl --max-time 30 -fsS "https://hanami-backend-ugak.onrender.com/api/safety-runs/$run_id") &&
+  printf "%s" "$body" | grep -Eq "\\\"status\\\":\\\"passed\\\"" &&
+  printf "%s" "$body" | grep -Eq "\\\"reportRoot\\\":\\\"0x[0-9a-fA-F]{64}\\\""
 '
 checksh live "0G mainnet registry and factory addresses contain code" '
   for address in 0x764883319e51e46F683aB54D93F26bcBb74A7030 0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4; do

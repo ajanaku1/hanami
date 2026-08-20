@@ -62,7 +62,17 @@ The existing demo video remains the submission video because the underlying mint
 
 ## Live safety evidence
 
-A live owner-signed run will be recorded here after the verified deployment. The deterministic suite remains the implementation gate; this section will only contain a real run ID and retrievable 0G report root, never fixture data presented as live evidence.
+Recorded from the deployed app and backend on 2026-08-20:
+
+- Safety run ID: `6f56d744-2fe8-4e87-8497-c8df8c5ca56d`
+- Result: 8/8 expected decisions with TEE verification on every scenario
+- Duration: 44 seconds
+- 0G report root: `0xb4cfb0b28b3f7340a5a1cfab8d6c98521b0ce134fc9fc5878d6ea9fc788f2271`
+- Retrieval: 1,672-byte report downloaded from 0G Storage with proof verification enabled
+- Privacy scan: no persona, lorebook, complete reply, hidden instruction, reasoning, or transcript
+
+The public [run record](https://hanami-backend-ugak.onrender.com/api/safety-runs/6f56d744-2fe8-4e87-8497-c8df8c5ca56d)
+exposes only the reproducible scenario decisions, TEE state, and report root.
 
 ## Verification
 

@@ -288,4 +288,4 @@ Each commit message must make the Wave 3 delta and its test evidence clear.
 - [x] T069 Add explicit wallet, submitted, confirmed, failure, and retry evidence for each mint transaction plus `frontend/test/create-flow.test.ts` coverage per FR-023, FR-024, FR-027, and US3/AC2-3
 - [x] T070 Replace full-page applicant recovery with action-scoped retry and add `frontend/test/applicant-flow.test.ts` coverage for pre-connect trust, progress, retry, and verdict evidence per FR-027-FR-030 and US4/AC1-3
 - [x] T071 Run current post-redesign Admin and Applicant fixtures at 390x844 and 1280x800 with keyboard, long content, and overflow assertions per SC-005, SC-006, SC-008, and SC-009
-- [ ] T072 Complete the owner-approved deployed safety run, five-minute timing, report retrieval/privacy scan, and browser-to-API-to-0G evidence record per SC-003, SC-010, SC-011, and Constitution I-II (partial)
+- [x] T072 Complete the owner-approved deployed safety run, five-minute timing, report retrieval/privacy scan, and browser-to-API-to-0G evidence record per SC-003, SC-010, SC-011, and Constitution I-II

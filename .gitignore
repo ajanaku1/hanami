@@ -55,3 +55,4 @@ backend/.image-cache/
 *.db
 *.db-wal
 *.db-shm
+.vercel

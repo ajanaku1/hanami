@@ -134,6 +134,11 @@ Expected:
 5. The report contains no persona, lorebook, complete simulated reply, hidden instruction, or
    reasoning text.
 
+Recorded on 2026-08-20: deployed run `6f56d744-2fe8-4e87-8497-c8df8c5ca56d` passed 8/8 in
+44 seconds with every scenario TEE-verified. Its 1,672-byte report downloaded from 0G Storage with
+proof verification at root `0xb4cfb0b28b3f7340a5a1cfab8d6c98521b0ce134fc9fc5878d6ea9fc788f2271`
+and passed the privacy scan above.
+
 ## 8. Verify deployed evidence
 
 Run the repository verification script and check:
