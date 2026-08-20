@@ -55,6 +55,8 @@ describe("SafetyReport", () => {
 
     expect(within(table).getAllByRole("row")).toHaveLength(9);
     expect(screen.getAllByText("Passed")).toHaveLength(8);
+    expect(screen.getAllByText(/actual approve/i)).toHaveLength(2);
+    expect(screen.getAllByText(/actual reject/i)).toHaveLength(6);
     expect(screen.getAllByText("TEE verified")).toHaveLength(8);
     expect(screen.getByText(`0x${"b".repeat(64)}`)).toBeVisible();
   });

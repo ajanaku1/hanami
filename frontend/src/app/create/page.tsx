@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { zeroG } from "@/lib/wagmi";
-import type { Address, Hex } from "viem";
+import type { Address } from "viem";
 import { create, personaPresets } from "@/copy";
 import { api, type CreateCampaignResult, type PrepareCampaignResult } from "@/lib/api";
 import { PetalsCanvas } from "@/components/PetalsCanvas";
@@ -27,6 +27,16 @@ import { Button } from "@/components/ui/Button";
 import { AsyncNotice } from "@/components/ui/AsyncNotice";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { Field } from "@/components/ui/Field";
+import {
+  assertReceiptConfirmed,
+  CREATE_STAGES,
+  INITIAL_CREATE_FLOW,
+  nextIncompleteStage,
+  stageStatus,
+  type CreateFlowState,
+  type CreateStage,
+  type CreateStageStatus,
+} from "@/lib/create-flow";
 
 const CHAINS = [
   { value: "ethereum", label: "Ethereum" },
@@ -36,43 +46,13 @@ const CHAINS = [
   { value: "0g", label: "0G" },
 ] as const;
 
-// Four-stage mint flow. The user signs three on-chain txs (mint, authorize, create campaign)
-// after the backend has uploaded the persona/lorebook/portrait. Stages let the UI show progress
-// and let us retry from the current step without redoing successful work.
-type Stage = "prepare" | "mint" | "authorize" | "campaign" | "index" | "done";
-type StageStatus = "pending" | "active" | "done" | "failed";
-
-const STAGE_LABELS: Record<Stage, string> = {
+const STAGE_LABELS: Record<CreateStage, string> = {
   prepare: "Reusing certified roots + generating portrait",
   mint: "Mint your bouncer iNFT (signature 1/3)",
   authorize: "Authorize the AI bouncer (signature 2/3)",
   campaign: "Deploy your campaign (signature 3/3)",
   index: "Finalizing",
   done: "Done",
-};
-
-const STAGES: Stage[] = ["prepare", "mint", "authorize", "campaign", "index"];
-
-type FlowState = {
-  stage: Stage;
-  status: StageStatus;
-  prepared: PrepareCampaignResult | null;
-  tokenId: bigint | null;
-  mintTx: Hex | null;
-  authorizeTx: Hex | null;
-  campaignAddress: Address | null;
-  campaignTx: Hex | null;
-};
-
-const initialFlow: FlowState = {
-  stage: "prepare",
-  status: "pending",
-  prepared: null,
-  tokenId: null,
-  mintTx: null,
-  authorizeTx: null,
-  campaignAddress: null,
-  campaignTx: null,
 };
 
 export default function CreatePage() {
@@ -89,12 +69,12 @@ export default function CreatePage() {
   const { signMessageAsync } = useSignMessage();
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [flow, setFlow] = useState<FlowState>(initialFlow);
+  const [flow, setFlow] = useState<CreateFlowState>(INITIAL_CREATE_FLOW);
   const flowRef = useRef(flow);
   useEffect(() => {
     flowRef.current = flow;
   }, [flow]);
-  const busy = flow.status === "active";
+  const busy = ["active", "wallet", "submitted", "confirmed"].includes(flow.status);
   const safety = useSafetyRun({
     scope: "draft",
     slug,
@@ -114,6 +94,12 @@ export default function CreatePage() {
     return Math.abs(h) || 3;
   }, [slug, name, persona]);
 
+  function updateFlow(update: (current: CreateFlowState) => CreateFlowState): void {
+    const next = update(flowRef.current);
+    flowRef.current = next;
+    setFlow(next);
+  }
+
   async function runPrepare(): Promise<PrepareCampaignResult> {
     if (flowRef.current.prepared) return flowRef.current.prepared;
     if (!safety.run || safety.run.status !== "passed") throw new Error("Pass the Bouncer Safety Report before minting.");
@@ -124,12 +110,12 @@ export default function CreatePage() {
       ownerAddress: address!,
       safetyRunId: safety.run.id,
     });
-    setFlow((f) => ({ ...f, prepared: prep }));
+    updateFlow((current) => ({ ...current, prepared: prep, status: "done" }));
     return prep;
   }
 
   async function runMint(prep: PrepareCampaignResult): Promise<bigint> {
-    if (flowRef.current.tokenId) return flowRef.current.tokenId;
+    if (flowRef.current.tokenId !== null) return flowRef.current.tokenId;
     const hash = await writeContractAsync({
       chainId: zeroG.id,
       address: prep.registryAddress as Address,
@@ -137,15 +123,16 @@ export default function CreatePage() {
       functionName: "mintBouncer",
       args: [prep.personaURI, prep.lorebookURI, prep.imageURI, ZERO_BYTES32],
     });
-    setFlow((f) => ({ ...f, mintTx: hash }));
+    updateFlow((current) => ({ ...current, mintTx: hash, status: "submitted" }));
     const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+    assertReceiptConfirmed(receipt.status, "mint");
     const tokenId = tokenIdFromMintLogs(receipt.logs);
-    setFlow((f) => ({ ...f, tokenId }));
+    updateFlow((current) => ({ ...current, tokenId, status: "confirmed" }));
     return tokenId;
   }
 
   async function runAuthorize(prep: PrepareCampaignResult, tokenId: bigint): Promise<void> {
-    if (flowRef.current.authorizeTx) return;
+    if (flowRef.current.authorizeConfirmed) return;
     const hash = await writeContractAsync({
       chainId: zeroG.id,
       address: prep.registryAddress as Address,
@@ -153,8 +140,10 @@ export default function CreatePage() {
       functionName: "authorizeUsage",
       args: [tokenId, prep.backendAddress as Address, EMPTY_BYTES],
     });
-    setFlow((f) => ({ ...f, authorizeTx: hash }));
-    await publicClient!.waitForTransactionReceipt({ hash });
+    updateFlow((current) => ({ ...current, authorizeTx: hash, status: "submitted" }));
+    const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+    assertReceiptConfirmed(receipt.status, "authorize");
+    updateFlow((current) => ({ ...current, authorizeConfirmed: true, status: "confirmed" }));
   }
 
   async function runCreateCampaign(prep: PrepareCampaignResult, tokenId: bigint): Promise<Address> {
@@ -166,10 +155,11 @@ export default function CreatePage() {
       functionName: "createCampaign",
       args: [tokenId, BigInt(wlSize)],
     });
-    setFlow((f) => ({ ...f, campaignTx: hash }));
+    updateFlow((current) => ({ ...current, campaignTx: hash, status: "submitted" }));
     const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+    assertReceiptConfirmed(receipt.status, "campaign");
     const campaignAddress = campaignAddressFromLogs(receipt.logs);
-    setFlow((f) => ({ ...f, campaignAddress }));
+    updateFlow((current) => ({ ...current, campaignAddress, status: "confirmed" }));
     return campaignAddress;
   }
 
@@ -186,19 +176,32 @@ export default function CreatePage() {
       // even though the wallet is somewhere else. Forcing the switch closes that gap.
       try { await switchChainAsync({ chainId: zeroG.id }); }
       catch { throw new Error("Switch your wallet to 0G mainnet (chain 16661) and try again."); }
-      setFlow((f) => ({ ...f, stage: "prepare", status: "active" }));
+      const resumeStage = nextIncompleteStage(flowRef.current);
+      if (resumeStage !== "prepare") {
+        const status = resumeStage === "index" ? "active" : "wallet";
+        updateFlow((current) => ({ ...current, stage: resumeStage, status }));
+      }
+      if (!flowRef.current.prepared) {
+        updateFlow((current) => ({ ...current, stage: "prepare", status: "active" }));
+      }
       const prep = await runPrepare();
 
-      setFlow((f) => ({ ...f, stage: "mint", status: "active" }));
+      if (flowRef.current.tokenId === null) {
+        updateFlow((current) => ({ ...current, stage: "mint", status: "wallet" }));
+      }
       const tokenId = await runMint(prep);
 
-      setFlow((f) => ({ ...f, stage: "authorize", status: "active" }));
+      if (!flowRef.current.authorizeConfirmed) {
+        updateFlow((current) => ({ ...current, stage: "authorize", status: "wallet" }));
+      }
       await runAuthorize(prep, tokenId);
 
-      setFlow((f) => ({ ...f, stage: "campaign", status: "active" }));
+      if (!flowRef.current.campaignAddress) {
+        updateFlow((current) => ({ ...current, stage: "campaign", status: "wallet" }));
+      }
       const campaignAddress = await runCreateCampaign(prep, tokenId);
 
-      setFlow((f) => ({ ...f, stage: "index", status: "active" }));
+      updateFlow((current) => ({ ...current, stage: "index", status: "active" }));
       const indexed = await api.indexCampaign({
         slug,
         name,
@@ -217,10 +220,10 @@ export default function CreatePage() {
         safetyRunId: safety.run!.id,
       });
       setResult(indexed);
-      setFlow((f) => ({ ...f, stage: "done", status: "done" }));
+      updateFlow((current) => ({ ...current, stage: "done", status: "done" }));
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
-      setFlow((f) => ({ ...f, status: "failed" }));
+      updateFlow((current) => ({ ...current, status: "failed" }));
     }
   }
 
@@ -426,28 +429,23 @@ function submitLabel(state: { busy: boolean; failed: boolean; isConnected: boole
   return state.safetyPassed ? create.submit : "Pass safety to mint";
 }
 
-function stageStatus(stage: Stage, flow: FlowState): StageStatus {
-  const here = STAGES.indexOf(flow.stage);
-  const me = STAGES.indexOf(stage);
-  if (me < here) return "done";
-  if (me > here) return "pending";
-  return flow.status;
-}
-
-function StageProgress({ flow }: { flow: FlowState }) {
+function StageProgress({ flow }: { flow: CreateFlowState }) {
   return (
     <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-4 space-y-2">
       <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-1">
         mint progress
       </div>
-      {STAGES.map((stage) => {
+      {CREATE_STAGES.map((stage) => {
         const status = stageStatus(stage, flow);
         const dot = stageDotClass(status);
         const text = stageTextClass(status);
         return (
-          <div key={stage} className="flex items-center gap-3 text-[13px]">
+          <div key={stage} className="grid grid-cols-[8px_1fr] items-start gap-3 text-[13px]">
             <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
-            <span className={text}>{STAGE_LABELS[stage]}</span>
+            <span className={text}>
+              {STAGE_LABELS[stage]}
+              <small className="block text-[10px] tracking-[0.08em] uppercase">{stageStatusLabel(status)}</small>
+            </span>
           </div>
         );
       })}
@@ -455,14 +453,26 @@ function StageProgress({ flow }: { flow: FlowState }) {
   );
 }
 
-function stageDotClass(status: StageStatus): string {
-  if (status === "done") return "bg-[var(--hanami-moss)]";
-  if (status === "active") return "bg-[var(--hanami-sakura)] animate-pulse";
+function stageStatusLabel(status: CreateStageStatus): string {
+  if (status === "wallet") return "Waiting for wallet";
+  if (status === "submitted") return "Submitted · awaiting confirmation";
+  if (status === "confirmed") return "Confirmed on 0G";
+  if (status === "done") return "Complete";
+  if (status === "active") return "In progress";
+  if (status === "failed") return "Failed · safe to retry";
+  return "Waiting";
+}
+
+function stageDotClass(status: CreateStageStatus): string {
+  if (status === "done" || status === "confirmed") return "bg-[var(--hanami-moss)]";
+  if (status === "active" || status === "wallet" || status === "submitted") {
+    return "bg-[var(--hanami-sakura)] animate-pulse";
+  }
   if (status === "failed") return "bg-[var(--hanami-stamp)]";
   return "bg-[var(--hanami-rule)]";
 }
 
-function stageTextClass(status: StageStatus): string {
+function stageTextClass(status: CreateStageStatus): string {
   if (status === "pending") return "text-[var(--hanami-ink-soft)]";
   if (status === "failed") return "text-[var(--hanami-stamp)]";
   return "text-[var(--hanami-ink)]";

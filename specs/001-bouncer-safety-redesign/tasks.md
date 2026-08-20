@@ -280,3 +280,12 @@ Each commit message must make the Wave 3 delta and its test evidence clear.
 - No live 0G compute is used while a deterministic test remains red.
 - No smart contract source changes are expected; any contract diff stops implementation for review.
 - `speckit.converge` runs after implementation and may append only evidence-backed remaining tasks.
+
+## Phase 9: Convergence
+
+- [x] T067 Restore a known exact-content run from persisted browser identity on refresh or wallet reconnect without repeating completed work per FR-009, SC-004, and US1/AC5
+- [x] T068 Show the actual decision for every completed passing or failing scenario while preserving the report disclosure boundary per FR-004 and FR-011
+- [x] T069 Add explicit wallet, submitted, confirmed, failure, and retry evidence for each mint transaction plus `frontend/test/create-flow.test.ts` coverage per FR-023, FR-024, FR-027, and US3/AC2-3
+- [x] T070 Replace full-page applicant recovery with action-scoped retry and add `frontend/test/applicant-flow.test.ts` coverage for pre-connect trust, progress, retry, and verdict evidence per FR-027-FR-030 and US4/AC1-3
+- [ ] T071 Run current post-redesign Admin and Applicant fixtures at 390x844 and 1280x800 with keyboard, long content, and overflow assertions per SC-005, SC-006, SC-008, and SC-009 (partial)
+- [ ] T072 Complete the owner-approved deployed safety run, five-minute timing, report retrieval/privacy scan, and browser-to-API-to-0G evidence record per SC-003, SC-010, SC-011, and Constitution I-II (partial)

@@ -20,8 +20,11 @@ function statusLabel(result: SafetyScenarioResult): string {
 }
 
 function decisionDisclosure(result: SafetyScenarioResult): string {
-  if (result.status !== "failed") return "";
-  return `Expected ${result.expectedDecision}, received ${result.actualDecision ?? "no-decision"}.`;
+  if (result.status === "pending") return "";
+  if (result.status === "failed") {
+    return `Expected ${result.expectedDecision}, received ${result.actualDecision ?? "no-decision"}.`;
+  }
+  return `Actual ${result.actualDecision ?? "no-decision"}.`;
 }
 
 function evidenceLabel(result: SafetyScenarioResult): string {

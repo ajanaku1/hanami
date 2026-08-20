@@ -1,12 +1,13 @@
 # Hanami · 花見
 
-An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. It interviews each applicant inside a TEE on 0G Compute, signs every decision with a TEE attestation hash on 0G Chain, and exports a Merkle root you can drop into any EVM mint contract.
+An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. Before mint, its exact private intelligence must pass an eight-scenario Bouncer Safety Report through 0G Compute. It then interviews applicants inside a TEE, records attested decisions on 0G Chain, and exports a Merkle root for any EVM mint contract.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
 [![Tests](https://img.shields.io/badge/foundry_tests-16_passing-brightgreen)]()
+[![Wave 3](https://img.shields.io/badge/Wave_3_tests-56_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![0G Bridge](https://img.shields.io/badge/0G_Bridge-AKINDO-8B5CF6)](https://akindo.io)
 
@@ -40,11 +41,25 @@ Hanami is also submitted to the **0G Bridge Buildathon by AKINDO**, a 10-week, 5
 ### Submission readiness
 
 - **0G mainnet contract addresses:** `BouncerRegistry` at `0x764883319e51e46F683aB54D93F26bcBb74A7030`, `CampaignFactory` at `0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4`. Both verified on [Chainscan](https://chainscan.0g.ai/).
-- **Live demo:** [hanami-hazel.vercel.app](https://hanami-hazel.vercel.app). Mint a bouncer, apply as an applicant, run adversarial tests, export a Merkle root.
+- **Live demo:** [hanami-hazel.vercel.app](https://hanami-hazel.vercel.app). Certify and mint a bouncer, apply as an applicant, verify its decision, and export a Merkle root.
 - **Architecture diagram:** [`docs/architecture.png`](docs/architecture.png) with full data-flow walkthrough below.
 - **Demo script:** [`demo/script.md`](demo/script.md). A 3-minute walkthrough covering mint, chat, adversarial, admin, Merkle export.
 - **X post template:** [`demo/x-post.md`](demo/x-post.md). Ready with Bridge hashtags and tags.
-- **Reproduction:** see [Quick start](#quick-start). Two `npm install && npm run dev` and you're screening applicants locally against 0G mainnet.
+- **Reproduction:** see [Local deployment](#local-deployment). Two `npm install && npm run dev` and you're screening applicants locally against 0G mainnet.
+
+## What's new in Wave 3
+
+The Wave 2 judge asked for genuine new development built on Hanami's existing 0G foundation. Wave 3 is that product change.
+
+- **Bouncer Safety Report before mint.** The owner signs one gasless request for the exact persona and lorebook. Hanami runs eight fixed scenarios through the existing 0G Compute TEE path. Mint stays locked unless all eight decisions match and every response is TEE verified.
+- **Persistent, recoverable execution.** Runs checkpoint after every scenario, use at most two workers with global provider pacing, survive backend restarts, and resume technical interruptions without repeating completed checks.
+- **Privacy-safe evidence on 0G Storage.** A pass uploads the content hash, scenario names, decision results, and TEE states. Reports and routine logs exclude private inputs, full simulated replies, hidden instructions, and reasoning.
+- **Backend-enforced publication.** New campaigns start private. Admin requires a matching campaign report before publication. Campaigns that were already public keep working as clearly labeled legacy campaigns; making one private permanently enables the new gate.
+- **Production redesign.** Landing, Create, Applicant, Admin, Gallery, and Mine now use a shared responsive shell, clear async states, visible focus, touch-safe controls, reduced motion, and certification labels.
+
+The new implementation is isolated in three commits: [`5922490`](https://github.com/ajanaku1/hanami/commit/5922490) defines the build contract, [`138a0c8`](https://github.com/ajanaku1/hanami/commit/138a0c8) adds the resumable safety engine, and [`130905c`](https://github.com/ajanaku1/hanami/commit/130905c) ships the enforced gates and redesigned product. [Wave 3 submission notes](docs/wave3-submission.md) separate this work from Hanami's pre-existing contracts and demo.
+
+![Wave 3 Create flow with the gasless safety gate](docs/images/wave3-create-desktop.png)
 
 ## What's new for the Round of 32
 
@@ -73,6 +88,7 @@ Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted direct
 
 ## Features
 
+- **Bouncer Safety Report**: eight fixed, TEE-required simulations certify the exact private draft before mint and produce a privacy-safe 0G Storage report root.
 - **AI bouncer you own**: each bouncer is an ERC-7857 iNFT minted to the project owner's wallet, not a service account Hanami controls.
 - **Persona-driven screening**: the owner writes the voice, taste, and fit criteria. The bouncer holds a 3–6 turn private conversation, then approves or rejects.
 - **TEE-attested decisions**: every approve and reject tx carries a `bytes32` attestation hash proving the inference ran inside a sealed enclave.
@@ -88,8 +104,9 @@ Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted direct
 
 A project owner:
 
-1. Mints a bouncer iNFT and writes that bouncer's persona (voice, taste, what makes a fit). Adds an optional project context document the bouncer can reference.
-2. Shares the applicant URL.
+1. Writes the bouncer's persona and optional project context, then signs a gasless eight-scenario safety request for that exact content.
+2. Mints only after the report reaches 8/8 with verified TEE responses. The new campaign begins private.
+3. Shares the applicant URL when the campaign is ready to publish.
 
 An applicant connects a wallet, the bouncer greets them in character, they talk for 3–6 turns. The bouncer issues approve or reject. Decision + reasoning are written on chain with the TEE attestation hash that proves the inference ran inside a sealed enclave.
 
@@ -101,7 +118,7 @@ The MVP ships with three demo bouncers (Kenji, Bad Frogs, Sakura Society). Their
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16, React, wagmi v2, MetaMask |
+| Frontend | Next.js 16, React 19, wagmi 3, MetaMask |
 | Backend | Hono, TypeScript, Node 22, Turso/libSQL (read cache + durable portrait store) |
 | Contracts | Solidity 0.8, Foundry, ERC-7857 iNFT, OpenZeppelin |
 | 0G Compute | Router API (`0GM-1.0-35B-A3B` chat, `z-image` portrait), `verify_tee:true` |
@@ -116,27 +133,27 @@ The editable Excalidraw source lives at [`docs/architecture.excalidraw`](docs/ar
 ```
             ┌─────────────────────────────┐
             │  /create (Next.js)          │
-            │  project owner connects     │
+            │  exact persona + lorebook   │
             └──────────────┬──────────────┘
-                           │ persona + project context
+                           │ gasless owner signature
             ┌──────────────▼──────────────┐
-            │  POST /api/campaigns/prepare│  backend uploads to 0G Storage,
-            │  (backend, off-chain)       │  generates portrait, returns URIs
-            └──────────────┬──────────────┘
-                           │
-            ┌──────────────▼──────────────┐
-            │  0G Compute · 0GM-1.0-35B   │  visual brief from persona text
-            │  (TEE-attested chat)        │
+            │  POST /api/safety-runs      │  persists exact inputs on 0G,
+            │  owner-authorized           │  checkpoints after each scenario
             └──────────────┬──────────────┘
                            │
             ┌──────────────▼──────────────┐
-            │  0G Compute · z-image       │  portrait PNG
-            │  (TEE-attested image)       │
+            │  0G Compute · TEE           │  eight fixed scenarios,
+            │  0GM-1.0-35B-A3B            │  expected vs actual decisions
             └──────────────┬──────────────┘
-                           │
+                           │ strict 8/8 + tee_verified:true
             ┌──────────────▼──────────────┐
-            │  0G Storage                 │  persona, lorebook, portrait
-            │  finalityRequired:false     │  → three rootHashes
+            │  0G Storage safety report   │  content hash + safe summaries,
+            │  reportRoot                 │  never prompts/replies/reasoning
+            └──────────────┬──────────────┘
+                           │ certified to mint
+            ┌──────────────▼──────────────┐
+            │  POST /api/campaigns/prepare│  reuses certified text roots,
+            │  backend-enforced gate      │  generates only z-image portrait
             └──────────────┬──────────────┘
                            │ owner signs three txs in MetaMask:
                            │
@@ -201,6 +218,7 @@ What we pin on storage:
 - Bouncer persona text (the system prompt the bouncer reasons inside).
 - Project context document (what the bouncer knows about the project's art, story, what makes a fit).
 - Bouncer portrait PNG (1024×1024, generated by z-image).
+- Passing Bouncer Safety Report (content hash, eight decision summaries, TEE states, and no private source text or replies).
 - Decision reasoning for every approve/reject (a paragraph in the bouncer's voice).
 - Full conversation transcript per applicant.
 
@@ -220,6 +238,8 @@ Two models in use:
 
 - `0GM-1.0-35B-A3B` for the bouncer chat. TEE-attested. Thinking mode is disabled via `chat_template_kwargs: { enable_thinking: false }` because the bouncer doesn't need chain-of-thought. It needs to stay in character and decide.
 - `z-image` for the bouncer portrait. TEE-attested. Same TEE provider (`0xE29a…F974`) attests the image generation, so a freshly minted Hanami portrait carries provable TEE provenance. (The three demo portraits were regenerated after a storage-durability fix, so their current bytes are a re-pin whose root differs from the one recorded on-chain at the original mint. See [Portrait durability](#portrait-durability).)
+
+The Wave 3 safety runner uses the chat model for eight fixed multi-turn simulations. It passes only when every expected decision matches and every response has `tee_verified:true`. Network, provider, storage, rate-limit, or attestation failures interrupt the run instead of being counted as product verdicts.
 
 Each chat response comes back with an `x_0g_trace` object. We compute the on-chain attestation hash as `keccak256(abi.encode(requestId, provider, tee_verified))` and pass that as a parameter to `Campaign.recordDecision`. No off-chain trust required; anyone can recompute the hash from the trace and match it against the on-chain log.
 
@@ -266,11 +286,11 @@ You need: Node 22+, Foundry, a wallet with mainnet OG, and a funded 0G Compute R
 ```bash
 # 1. clone + install
 git clone <this repo> hanami && cd hanami
+git submodule update --init --recursive
 
 # 2. contracts. Already deployed to 0G mainnet. Run tests locally if you want.
-cd contracts && forge install && forge test
+cd contracts && forge test --offline
 # 16 tests pass: BouncerRegistry + Campaign + MerkleConsumer
-# (if forge-std is missing: git clone --depth 1 https://github.com/foundry-rs/forge-std lib/forge-std)
 
 # 3. backend
 cd ../backend && npm install
@@ -298,8 +318,23 @@ npx tsx scripts/hello-inference.ts    # one Router call against 0GM-1.0-35B-A3B
 npx tsx scripts/hello-tee.ts          # confirms tee_verified:true in x_0g_trace
 npx tsx scripts/hello-storage.ts      # upload + download by rootHash, byte-match
 npx tsx scripts/smoke-chain.ts        # full mint flow against the deployed contracts
-npx tsx scripts/adversarial.ts        # 8 adversarial scenarios; latest run 6/8
+npx tsx scripts/adversarial.ts        # pre-Wave manual adversarial script
 ```
+
+The current deterministic Wave 3 gate runs from the repository root with `./verify.sh safety`. It covers strict 8/8 behavior, TEE interruption handling, checkpoints, owner signatures, exact-content invalidation, preparation, and publication policy without spending Router funds.
+
+## Verification
+
+The repository-level verifier keeps deterministic, UI, release, and deployed evidence separate:
+
+```bash
+./verify.sh safety   # backend/frontend safety contracts and privacy scan
+./verify.sh ui       # frontend tests, lint, build, and UI Revamp audit
+./verify.sh release  # backend + frontend + 16 unchanged Foundry tests + docs
+./verify.sh live     # deployed UI/API, report root, and 0G mainnet bytecode
+```
+
+`./verify.sh live` only passes after a real owner-signed safety run has been recorded in [the Wave 3 submission notes](docs/wave3-submission.md). Local fixtures are never treated as deployed evidence.
 
 ## Project structure
 
@@ -343,7 +378,7 @@ You can read the full state without signing anything:
 - **Storage uploads use `finalityRequired:false`.** Documented in `backend/src/og-storage.ts`. The file is pinned immediately and becomes downloadable through the indexer once the network finalizes, but a holding node can drop it first, after which the indexer returns `File not found`. Portraits are insulated from this by the durable `portraits` store in Turso plus the procedural-SVG fallback (see [Portrait durability](#portrait-durability)); other blobs (persona, lorebook, reasoning) are small text and finalize reliably.
 - **Chain ID enforcement.** The mint flow calls `switchChainAsync({ chainId: 16661 })` unconditionally before any signing prompt. If your wallet sits on Sepolia, Ethereum mainnet, or anywhere else, MetaMask will pop a "switch to 0G" prompt first. This is intentional. wagmi v2's `useChainId()` can report stale values when the wallet's actual chain isn't in the config's `chains` array, so we don't trust it for gating.
 
-### Adversarial behavior
+### Pre-Wave adversarial baseline
 
 These four scenarios are implemented in `backend/scripts/adversarial.ts`:
 
@@ -352,9 +387,9 @@ These four scenarios are implemented in `backend/scripts/adversarial.ts`:
 - Prompt-injection attempts (`ignore previous instructions`, fake admin tags, scripted insider claims) → reject. Passes after a frame-rule tightening; the bouncer no longer parrots scripted persona language.
 - Retry after rejection → blocked at the API layer and at the `Campaign` contract layer.
 
-Last recorded full run: 6/8. Both misses are false-negatives: genuinely thoughtful applicants (`T1`, `T2`) that the bouncer rejected for being understated rather than for any flip/hype/manipulation signal. That is a conservative failure, not a security regression: the gate never let a bad actor through, it just turned away two good ones.
+The old manual script's last recorded full run was 6/8. Both misses were false negatives: genuinely thoughtful applicants (`T1`, `T2`) that the bouncer rejected for being understated rather than for any flip/hype/manipulation signal. That run predates the Wave 3 certification gate and is not presented as a passing safety report.
 
-For the Round of 32 we added a frame rule that tells the bouncer not to over-reject sincere, specific-but-quiet applicants (genuine specificity outweighs a low word count), while leaving the auto-reject defenses for hype, flip intent, and manipulation untouched. Re-run `npx tsx scripts/adversarial.ts` against a funded Router to confirm the two thoughtful cases now approve; the four jailbreak/low-effort rejections and the flip-intent edge case are unchanged.
+For the Round of 32 we added a frame rule that tells the bouncer not to over-reject sincere, specific-but-quiet applicants (genuine specificity outweighs a low word count), while leaving the auto-reject defenses for hype, flip intent, and manipulation untouched. The new product gate is stricter: a bouncer cannot mint or newly publish unless its current, exact content produces a fresh 8/8 report.
 
 ## License
 

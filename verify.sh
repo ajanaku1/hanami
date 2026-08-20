@@ -33,13 +33,13 @@ checksh() {
 
 echo "== Hanami Wave 3 verify =="
 
-checksh spec "formal spec contains 40 FRs, 12 SCs, and 66 ordered tasks" '
+checksh spec "formal spec contains 40 FRs, 12 SCs, and 72 ordered tasks" '
   test -f specs/001-bouncer-safety-redesign/spec.md &&
   test -f specs/001-bouncer-safety-redesign/plan.md &&
   test -f specs/001-bouncer-safety-redesign/tasks.md &&
   test "$(grep -c "^-[[:space:]]\\*\\*FR-[0-9][0-9][0-9]\\*\\*" specs/001-bouncer-safety-redesign/spec.md)" -eq 40 &&
   test "$(grep -c "^-[[:space:]]\\*\\*SC-[0-9][0-9][0-9]\\*\\*" specs/001-bouncer-safety-redesign/spec.md)" -eq 12 &&
-  test "$(grep -c "^- \\[ \\] T[0-9][0-9][0-9]" specs/001-bouncer-safety-redesign/tasks.md)" -eq 66
+  test "$(grep -Ec "^- \\[[ xX]\\] T[0-9][0-9][0-9]" specs/001-bouncer-safety-redesign/tasks.md)" -eq 72
 '
 checksh spec "formal artifacts contain no unresolved placeholders" '
   test -d specs/001-bouncer-safety-redesign &&
@@ -96,7 +96,7 @@ checksh ui "UI audit has no major or critical violations" '
 checksh release "complete backend, frontend, and contract regression matrix passes" '
   (cd backend && npm test && npm run build) &&
   (cd frontend && npm test && npm run lint && npm run build) &&
-  (cd contracts && forge test)
+  (cd contracts && forge test --offline)
 '
 checksh release "deployed contract source remains byte-for-byte unchanged" '
   printf "%s\\n" \

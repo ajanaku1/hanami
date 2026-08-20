@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { applicant } from "@/copy";
@@ -12,22 +12,31 @@ import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import {
+  completeApplicantTurn,
+  failApplicantTurn,
+  retryApplicantTurn,
+  startApplicantTurn,
+  type ApplicantChatState,
+} from "@/lib/applicant-flow";
 
 type Params = { slug: string };
-type Msg = { role: "applicant" | "bouncer"; content: string };
+const INITIAL_CHAT: ApplicantChatState = { history: [], failedMessage: null };
 
 export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const { slug } = use(params);
   const { address, isConnected } = useAccount();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [started, setStarted] = useState(false);
-  const [history, setHistory] = useState<Msg[]>([]);
+  const [chat, setChat] = useState<ApplicantChatState>(INITIAL_CHAT);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [decision, setDecision] = useState<TurnResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [failedAction, setFailedAction] = useState<"greeting" | "turn" | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wallet = address ?? "";
+  const history = chat.history;
 
   // Warm the (free-tier) backend the moment the page opens so it wakes in the background instead of
   // the applicant's first message eating a 30–60s cold start. Fire-and-forget; getCampaign below
@@ -42,33 +51,61 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [history.length]);
 
+  const requestGreeting = useCallback(async (): Promise<void> => {
+    if (!address) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const response = await api.beginChat(slug, address);
+      setChat({ history: [{ role: "bouncer", content: response.reply }], failedMessage: null });
+      setFailedAction(null);
+    } catch (caught) {
+      setErr(friendlyError(caught));
+      setFailedAction("greeting");
+    } finally {
+      setBusy(false);
+    }
+  }, [address, slug]);
+
   // Bouncer opens the conversation. Fires once when chat starts and history is still empty.
   const greetingRequested = useRef(false);
   useEffect(() => {
     if (!started || !address || history.length > 0 || greetingRequested.current) return;
     greetingRequested.current = true;
-    setBusy(true);
-    api.beginChat(slug, address)
-      .then((r) => setHistory([{ role: "bouncer", content: r.reply }]))
-      .catch((e) => setErr(friendlyError(e)))
-      .finally(() => setBusy(false));
-  }, [started, address, history.length, slug]);
+    void requestGreeting();
+  }, [started, address, history.length, requestGreeting]);
 
-  async function send() {
-    if (!input.trim() || busy || !address) return;
-    const msg = input.trim();
-    setInput("");
-    setHistory((h) => [...h, { role: "applicant", content: msg }]);
+  async function send(messageOverride?: string, retry = false): Promise<void> {
+    const msg = (messageOverride ?? input).trim();
+    if (!msg || busy || !address) return;
+    if (!retry) {
+      setInput("");
+      setChat((current) => startApplicantTurn(current, msg));
+    }
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.sendTurn(slug, address, msg);
-      setHistory((h) => [...h, { role: "bouncer", content: r.reply }]);
-      if (r.decision) setDecision(r);
-    } catch (e) {
-      setErr(friendlyError(e));
+      const response = await api.sendTurn(slug, address, msg);
+      setChat((current) => completeApplicantTurn(current, response.reply));
+      setFailedAction(null);
+      if (response.decision) setDecision(response);
+    } catch (caught) {
+      setChat((current) => failApplicantTurn(current, msg));
+      setErr(friendlyError(caught));
+      setFailedAction("turn");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function retryFailedAction(): void {
+    if (failedAction === "greeting") {
+      void requestGreeting();
+      return;
+    }
+    if (failedAction === "turn") {
+      const retry = retryApplicantTurn(chat);
+      void send(retry.message, true);
     }
   }
 
@@ -248,7 +285,9 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
             {err && (
               <div className="ui-notice" data-tone="error" role="alert">
                 <p>{err}</p>
-                <button type="button" className="mt-2 underline" onClick={() => window.location.reload()}>Reconnect safely</button>
+                <button type="button" className="mt-2 underline" onClick={retryFailedAction}>
+                  {failedAction === "greeting" ? "Retry greeting" : "Retry this message"}
+                </button>
               </div>
             )}
           </div>
@@ -259,10 +298,10 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
               placeholder={applicant.chat.placeholder}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              disabled={busy}
+              onKeyDown={(e) => e.key === "Enter" && void send()}
+              disabled={busy || failedAction !== null}
             />
-            <button onClick={send} disabled={busy || !input.trim()}
+            <button onClick={() => void send()} disabled={busy || failedAction !== null || !input.trim()}
               className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-5 text-sm tracking-[0.08em] uppercase disabled:opacity-40 transition-colors">
               {applicant.chat.send}
             </button>

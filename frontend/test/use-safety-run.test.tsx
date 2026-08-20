@@ -39,6 +39,7 @@ function client(overrides: Partial<SafetyClient> = {}): SafetyClient {
 
 afterEach(() => {
   vi.useRealTimers();
+  window.localStorage.clear();
 });
 
 describe("useSafetyRun", () => {
@@ -123,5 +124,38 @@ describe("useSafetyRun", () => {
     rerender({ currentPersona: `${persona} edited` });
     await waitFor(() => expect(result.current.phase).toBe("idle"));
     expect(result.current.run).toBeNull();
+  });
+
+  it("restores a known exact-content run after remount without another signature", async () => {
+    const started = run("running");
+    const startClient = client({ start: vi.fn(async () => started) });
+    const signMessage = vi.fn(async () => `0x${"a".repeat(130)}`);
+    const first = renderHook(() => useSafetyRun({
+      scope: "draft",
+      slug: "sakura-society",
+      persona,
+      lorebook: "",
+      ownerAddress,
+      signMessage,
+      client: startClient,
+    }));
+
+    await act(async () => first.result.current.start());
+    first.unmount();
+
+    const restoredClient = client({ get: vi.fn(async () => run("passed")) });
+    const restored = renderHook(() => useSafetyRun({
+      scope: "draft",
+      slug: "sakura-society",
+      persona,
+      lorebook: "",
+      ownerAddress,
+      signMessage,
+      client: restoredClient,
+    }));
+
+    await waitFor(() => expect(restored.result.current.phase).toBe("passed"));
+    expect(restoredClient.get).toHaveBeenCalledWith(started.id);
+    expect(signMessage).toHaveBeenCalledOnce();
   });
 });

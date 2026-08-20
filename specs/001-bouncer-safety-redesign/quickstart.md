@@ -36,15 +36,20 @@ cd ../frontend
 npm test
 
 cd ../contracts
-forge test
+forge test --offline
 ```
 
 Expected:
 
 - backend tests prove exact content hashing, owner signatures, strict 8/8 gating, interruption
   classification, privacy-safe reports, checkpoint resume, prepare enforcement, and grandfathering;
-- frontend tests prove draft edit invalidation and safety panel pass/fail/interruption semantics;
+- frontend tests prove draft recovery, full decision disclosure, transaction-state recovery,
+  action-scoped applicant retry, and safety panel semantics;
 - all 16 existing contract tests remain green with no contract diff.
+
+Recorded on 2026-08-20: 36 backend tests, 20 frontend tests, and 16 Foundry tests passed.
+The frontend lint gate also passed. The production build is repeated in the release verifier with
+network access because `next/font` downloads the three pinned Google font families at build time.
 
 ## 3. Start the local application
 
