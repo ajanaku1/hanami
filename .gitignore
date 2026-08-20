@@ -41,7 +41,11 @@ goal.md
 Goal.md
 prompt.md
 plan.md
+design.md
 proposals/
+
+# Spec Kit technical plans are public project artifacts.
+!specs/**/plan.md
 
 # Local
 .claude/

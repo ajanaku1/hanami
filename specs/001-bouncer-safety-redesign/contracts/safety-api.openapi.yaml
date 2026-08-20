@@ -1,0 +1,310 @@
+openapi: 3.1.0
+info:
+  title: Hanami Safety Certification API Delta
+  version: 1.0.0
+  description: >-
+    New and changed HTTP contracts for Wave 3. Existing campaign, applicant, admin, export, image,
+    and verification fields remain backward compatible unless described here.
+servers:
+  - url: https://hanami-backend-ugak.onrender.com
+paths:
+  /api/safety-runs:
+    post:
+      summary: Start or return the idempotent run for one exact content identity
+      operationId: startSafetyRun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSafetyRun'
+      responses:
+        '202':
+          description: Run accepted or already running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyRun'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSignature'
+        '403':
+          description: Caller is not the owner of an existing campaign
+        '409':
+          description: Slug/content conflicts with a different owner or immutable campaign content
+        '429':
+          description: Safety-run rate limit reached
+  /api/safety-runs/{runId}:
+    get:
+      summary: Read privacy-safe run progress
+      operationId: getSafetyRun
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      responses:
+        '200':
+          description: Current privacy-safe run view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyRun'
+        '404':
+          description: Run not found
+  /api/safety-runs/{runId}/resume:
+    post:
+      summary: Resume unfinished scenario work or report persistence
+      operationId: resumeSafetyRun
+      parameters:
+        - $ref: '#/components/parameters/RunId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnerAuthorization'
+      responses:
+        '202':
+          description: Run resumed or already active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyRun'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/InvalidSignature'
+        '403':
+          description: Caller does not own the run
+        '409':
+          description: Failed or already passed run cannot resume
+  /api/campaigns/prepare:
+    post:
+      summary: Prepare a certified draft for minting
+      description: >-
+        Existing response shape is retained. The request adds safetyRunId. The backend derives and
+        verifies the exact content hash, reuses the run's persona/lorebook roots, and generates the
+        portrait only after the passing gate is confirmed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareCertifiedCampaign'
+      responses:
+        '200':
+          description: Existing PrepareCampaignResult
+        '403':
+          description: Passing run does not belong to the owner
+        '409':
+          description: Safety run is not passed or does not match exact content
+  /api/campaigns/{slug}/visibility:
+    post:
+      summary: Change visibility with publication certification enforcement
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/OwnerAuthorization'
+                - type: object
+                  required: [visibility]
+                  properties:
+                    visibility:
+                      type: string
+                      enum: [public, private]
+      responses:
+        '200':
+          description: Visibility updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [slug, visibility, safety]
+                properties:
+                  slug:
+                    type: string
+                  visibility:
+                    type: string
+                    enum: [public, private]
+                  safety:
+                    $ref: '#/components/schemas/CampaignSafety'
+        '409':
+          description: CERTIFICATION_REQUIRED when new publication lacks a matching pass
+components:
+  parameters:
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    InvalidRequest:
+      description: Validation or stale-nonce error
+    InvalidSignature:
+      description: Wallet signature does not verify
+  schemas:
+    OwnerAuthorization:
+      type: object
+      required: [caller, nonce, signature]
+      properties:
+        caller:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+        nonce:
+          type: integer
+          description: Millisecond timestamp accepted for ten minutes
+        signature:
+          type: string
+          pattern: '^0x[a-fA-F0-9]+$'
+    StartSafetyRun:
+      allOf:
+        - $ref: '#/components/schemas/OwnerAuthorization'
+        - type: object
+          required: [scope, slug]
+          properties:
+            scope:
+              type: string
+              enum: [draft, campaign]
+            slug:
+              type: string
+              minLength: 3
+              maxLength: 64
+              pattern: '^[a-z0-9-]+$'
+            persona:
+              type: string
+              minLength: 50
+              description: Required for draft scope; never returned or stored in the report
+            lorebook:
+              type: string
+              default: ''
+              description: Accepted only for draft scope; never returned or stored in the report
+      description: >-
+        Signature message binds scope, slug, computed exact content hash, and nonce. For campaign
+        scope, the backend loads immutable intelligence and verifies campaign ownership.
+    PrepareCertifiedCampaign:
+      type: object
+      required: [slug, persona, lorebook, ownerAddress, safetyRunId]
+      properties:
+        slug:
+          type: string
+        persona:
+          type: string
+        lorebook:
+          type: string
+        ownerAddress:
+          type: string
+        safetyRunId:
+          type: string
+          format: uuid
+    SafetyRun:
+      type: object
+      required:
+        - id
+        - scope
+        - slug
+        - ownerAddress
+        - contentHash
+        - status
+        - completedCount
+        - totalCount
+        - scenarios
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum: [draft, campaign]
+        slug:
+          type: string
+        ownerAddress:
+          type: string
+        contentHash:
+          type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+        status:
+          type: string
+          enum: [running, passed, failed, interrupted]
+        completedCount:
+          type: integer
+          minimum: 0
+          maximum: 8
+        totalCount:
+          type: integer
+          const: 8
+        reportRoot:
+          type: [string, 'null']
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/SafeError'
+            - type: 'null'
+        scenarios:
+          type: array
+          minItems: 8
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/ScenarioResult'
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        completedAt:
+          type: [integer, 'null']
+    ScenarioResult:
+      type: object
+      required: [id, category, expectedDecision, status]
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          enum: [thoughtful, low-effort, jailbreak, edge]
+        expectedDecision:
+          type: string
+          enum: [approve, reject]
+        actualDecision:
+          type: [string, 'null']
+          enum: [approve, reject, no-decision, null]
+        teeVerified:
+          type: [boolean, 'null']
+        status:
+          type: string
+          enum: [pending, passed, failed, interrupted]
+        turnCount:
+          type: integer
+        errorCode:
+          type: [string, 'null']
+    SafeError:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean
+    CampaignSafety:
+      type: object
+      required: [state, canPublish]
+      properties:
+        state:
+          type: string
+          enum: [certified, legacy-public, required, running, failed, interrupted]
+        canPublish:
+          type: boolean
+        runId:
+          type: [string, 'null']
+        reportRoot:
+          type: [string, 'null']
+      description: Added to existing campaign list, detail, and admin response campaign records.
