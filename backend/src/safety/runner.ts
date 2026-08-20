@@ -15,6 +15,7 @@ export type SafetyInferenceInput = {
   lorebook: string;
   scenario: SafetyScenario;
   turnIndex: number;
+  finalTurn: boolean;
   history: ChatTurn[];
 };
 
@@ -176,6 +177,7 @@ export class SafetyRunner {
         lorebook,
         scenario,
         turnIndex,
+        finalTurn: turnIndex === scenario.messages.length - 1,
         history: [...history],
       }));
       if (!response.teeVerified) {

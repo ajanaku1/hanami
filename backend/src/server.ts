@@ -749,8 +749,8 @@ async function fetchText(uri: string): Promise<string> {
 }
 
 const safetyRepository = new SafetyRepository(db);
-const safetyInference: SafetyInference = async ({ persona, lorebook, history }) => {
-  const turn = await bouncerTurn({ persona, lorebook, history });
+const safetyInference: SafetyInference = async ({ persona, lorebook, history, finalTurn }) => {
+  const turn = await bouncerTurn({ persona, lorebook, history, forceDecision: finalTurn });
   return {
     reply: turn.reply,
     decision: turn.decision?.kind ?? null,

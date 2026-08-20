@@ -80,6 +80,31 @@ describe("SafetyRunner", () => {
     assert.equal(uploaded.includes("private reply"), false);
   });
 
+  test("marks the last fixed scenario message as the required verdict turn", async () => {
+    const { repo, run } = await setup();
+    const verdictTurns: Array<{ turnIndex: number; finalTurn: boolean }> = [];
+    const runner = new SafetyRunner({
+      repository: repo,
+      infer: async ({ scenario, turnIndex, finalTurn }) => {
+        verdictTurns.push({ turnIndex, finalTurn });
+        return {
+          reply: "private",
+          decision: finalTurn ? scenario.expectedDecision : null,
+          teeVerified: true,
+        };
+      },
+      uploadReport: async () => `0x${"b".repeat(64)}`,
+      now: () => 200,
+      pacer: new InferencePacer(0),
+    });
+
+    const result = await runner.execute(run.id, "persona", "lorebook");
+
+    assert.equal(result.status, "passed");
+    assert.equal(verdictTurns.filter(({ finalTurn }) => finalTurn).length, 8);
+    assert.equal(verdictTurns.every(({ turnIndex, finalTurn }) => finalTurn === (turnIndex === 2)), true);
+  });
+
   test("treats a wrong or missing decision as a genuine failed verdict", async () => {
     const { repo, run } = await setup();
     let uploads = 0;

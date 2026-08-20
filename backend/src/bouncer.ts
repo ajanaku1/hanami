@@ -32,6 +32,7 @@ export type BouncerInput = {
   persona: string;
   lorebook: string;
   history: ChatTurn[];   // alternating user/assistant, ending in latest user message
+  forceDecision?: boolean;
 };
 
 const FRAME_PREFIX = [
@@ -97,7 +98,7 @@ function applicantTurnCount(history: ChatTurn[]): number {
 /// Forces a decision when applicantTurnCount reaches MAX_TURNS even if the model didn't tag one.
 export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
   const turns = applicantTurnCount(input.history);
-  const mustDecide = turns >= MAX_TURNS;
+  const mustDecide = input.forceDecision === true || turns >= MAX_TURNS;
   const mayDecide = turns >= MIN_TURNS;
 
   const system = buildSystemPrompt(input.persona, input.lorebook);
