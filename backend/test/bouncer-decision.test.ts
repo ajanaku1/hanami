@@ -13,6 +13,11 @@ describe("decisionForTurn", () => {
     assert.equal(decisionForTurn("Welcome.\n<DECISION:APPROVE>", 3, false)?.kind, "approve");
   });
 
+  test("accepts harmless verdict tag spacing and casing variants", () => {
+    assert.equal(decisionForTurn("Welcome.\n<DECISION: APPROVE>", 3, true)?.kind, "approve");
+    assert.equal(decisionForTurn("No.\n<decision:reject>", 3, true)?.kind, "reject");
+  });
+
   test("fails closed when a required final turn omits its verdict", () => {
     assert.equal(decisionForTurn("I am still considering this.", 3, true)?.kind, "reject");
   });

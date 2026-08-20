@@ -83,10 +83,11 @@ export function buildSystemPrompt(persona: string, lorebook: string): string {
 }
 
 function parseDecisionTag(reply: string): Decision | null {
-  const m = reply.match(/<DECISION:(APPROVE|REJECT)>/);
+  const verdictTag = /<DECISION:\s*(APPROVE|REJECT)\s*>/i;
+  const m = reply.match(verdictTag);
   if (!m) return null;
-  const kind = m[1] === "APPROVE" ? "approve" : "reject";
-  const reasoning = reply.replace(/<DECISION:(APPROVE|REJECT)>/, "").trim();
+  const kind = m[1]?.toUpperCase() === "APPROVE" ? "approve" : "reject";
+  const reasoning = reply.replace(verdictTag, "").trim();
   return { kind, reasoning };
 }
 
