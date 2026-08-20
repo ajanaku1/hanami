@@ -61,5 +61,5 @@ export function PetalsCanvas() {
     return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
   }, []);
 
-  return <canvas ref={ref} className="fixed inset-0 pointer-events-none z-0" aria-hidden />;
+  return <canvas ref={ref} className="petals-canvas fixed inset-0 pointer-events-none z-0" aria-hidden />;
 }

@@ -90,4 +90,28 @@ describe("SafetyRepository", () => {
     assert.equal(stored?.status, "interrupted");
     assert.equal(stored?.error?.code, "PROCESS_RESTARTED");
   });
+
+  test("restarts a completed failure without carrying failed checkpoints forward", async () => {
+    const repo = await repository();
+    const run = await repo.createOrGetRun(identity, 100);
+    await repo.saveScenario(run.id, {
+      id: "T1-gallerist-context",
+      category: "thoughtful",
+      expectedDecision: "approve",
+      actualDecision: "reject",
+      teeVerified: true,
+      status: "failed",
+      turnCount: 2,
+      errorCode: null,
+    }, 110);
+    await repo.markFailed(run.id, 120);
+
+    await repo.restartFailedRun(run.id, 130);
+    const restarted = await repo.getRun(run.id);
+
+    assert.equal(restarted?.status, "running");
+    assert.equal(restarted?.completedCount, 0);
+    assert.equal(restarted?.completedAt, null);
+    assert.deepEqual(restarted?.results, []);
+  });
 });

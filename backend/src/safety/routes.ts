@@ -195,11 +195,15 @@ export function createSafetyRoutes(dependencies: SafetyRouteDependencies): Hono 
     if (parsed.data.caller.toLowerCase() !== run.ownerAddress.toLowerCase()) {
       return context.json({ error: { code: "NOT_OWNER", message: "Only the signing owner can resume this run." } }, 403);
     }
-    if (run.status === "failed" || run.status === "passed") {
+    if (run.status === "passed") {
       return context.json({ error: { code: "RUN_COMPLETE", message: "This run cannot be resumed." } }, 409);
     }
+    if (run.status === "failed") {
+      await dependencies.repository.restartFailedRun(run.id, nowSeconds());
+    }
     dependencies.scheduleExecution(run.id);
-    return context.json(publicRun(run), 202);
+    const resumed = await dependencies.repository.getRun(run.id);
+    return context.json(publicRun(resumed ?? run), 202);
   });
 
   return app;

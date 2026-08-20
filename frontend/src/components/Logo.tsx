@@ -17,14 +17,14 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
           d="M 0 0 Q -4.5 -6 -6 -11 Q -4.5 -14 -1.5 -12 Q 0 -10 1.5 -12 Q 4.5 -14 6 -11 Q 4.5 -6 0 0 Z"
         />
       </defs>
-      <g transform="translate(16 16)" fill="#d4486b">
+      <g transform="translate(16 16)" fill="var(--hanami-sakura)">
         <use href="#hanami-petal" transform="rotate(0)" />
         <use href="#hanami-petal" transform="rotate(72)" />
         <use href="#hanami-petal" transform="rotate(144)" />
         <use href="#hanami-petal" transform="rotate(216)" />
         <use href="#hanami-petal" transform="rotate(288)" />
       </g>
-      <circle cx="16" cy="16" r="1.8" fill="#2a3653" />
+      <circle cx="16" cy="16" r="1.8" fill="var(--hanami-indigo)" />
     </svg>
   );
 }

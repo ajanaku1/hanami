@@ -74,6 +74,13 @@ export function SafetyReport({ run, onRetry }: SafetyReportProps) {
         </div>
       )}
 
+      {run.status === "failed" && onRetry && (
+        <div className="safety-report__notice">
+          <span>The bouncer made at least one incorrect decision.</span>
+          <button type="button" onClick={onRetry}>Run safety test again</button>
+        </div>
+      )}
+
       <div className="safety-report__table-wrap">
         <table aria-label="Eight-scenario safety matrix">
           <thead>

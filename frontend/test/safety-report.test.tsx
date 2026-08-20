@@ -76,4 +76,12 @@ describe("SafetyReport", () => {
     expect(onRetry).toHaveBeenCalledOnce();
     expect(screen.getByRole("status")).toHaveTextContent(/provider unavailable/i);
   });
+
+  it("offers a fresh test after a completed decision mismatch", () => {
+    const onRetry = vi.fn();
+    render(<SafetyReport run={safetyRun("failed")} onRetry={onRetry} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /run safety test again/i }));
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
 });

@@ -35,7 +35,7 @@ export function VerifyOn0G({ slug, wallet }: Props) {
   }
 
   return (
-    <div className="border border-[var(--hanami-rule)] bg-[#fbf8f1] max-w-md">
+    <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-raised)] max-w-md">
       <Header state={state} />
       {state.phase === "done" ? (
         state.result.kind === "tee-signature"

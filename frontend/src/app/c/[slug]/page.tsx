@@ -209,7 +209,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
     return (
       <Shell>
         <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-12 items-center">
-          <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-white p-4 flex items-center justify-center">
+          <div className="aspect-[0.72/1] border border-[var(--hanami-rule)] overflow-hidden bg-[var(--hanami-paper-raised)] p-4 flex items-center justify-center">
             <Seal seed={tokenId} className="w-[80%] h-[80%]" />
           </div>
           <div>

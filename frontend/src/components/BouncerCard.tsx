@@ -68,7 +68,7 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, class
             <span>Seal of №{tokenId}</span>
             <span className="font-mono">ERC-7857</span>
           </div>
-          <div className="flex-1 bg-white flex items-center justify-center p-4">
+          <div className="flex-1 bg-[var(--hanami-paper-raised)] flex items-center justify-center p-4">
             <Seal seed={tokenId} className="w-[75%] h-[75%]" />
           </div>
           <div className="flex justify-between items-baseline px-4 py-3 border-t border-[var(--hanami-rule)]">

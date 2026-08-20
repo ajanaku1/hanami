@@ -184,6 +184,31 @@ describe("safety routes", () => {
     assert.equal(scheduled.length, 2);
   });
 
+  test("restarts a failed run for its signing owner", async () => {
+    const { app, repository, scheduled } = await setup();
+    const contentHash = hashBouncerContent(persona, lorebook);
+    const auth = await authorization(owner, "draft", "sakura-society", contentHash);
+    const started = await app.request("/api/safety-runs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scope: "draft", slug: "sakura-society", persona, lorebook, ...auth }),
+    });
+    const runId = String((await parse(started)).id);
+    await repository.markFailed(runId, 2);
+    const retryAuth = await authorization(owner, "draft", "sakura-society", contentHash);
+
+    const retried = await app.request(`/api/safety-runs/${runId}/resume`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(retryAuth),
+    });
+    const payload = await parse(retried);
+
+    assert.equal(retried.status, 202);
+    assert.equal(payload.status, "running");
+    assert.equal(scheduled.length, 2);
+  });
+
   test("rate-limits repeated starts with a sanitized response", async () => {
     const { app } = await setup(1);
     const contentHash = hashBouncerContent(persona, lorebook);

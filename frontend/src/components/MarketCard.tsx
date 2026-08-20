@@ -68,7 +68,7 @@ export function MarketCard({ c }: { c: Campaign }) {
             <Portrait variant={variant} imageUri={c.image_uri} className="w-full h-full" />
           </div>
           <div
-            className="absolute inset-0 bg-white flex items-center justify-center p-6"
+            className="absolute inset-0 bg-[var(--hanami-paper-raised)] flex items-center justify-center p-6"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
             <Seal seed={c.bouncer_token_id} className="w-full h-full" />

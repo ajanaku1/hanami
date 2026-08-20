@@ -173,6 +173,22 @@ export class SafetyRepository {
     });
   }
 
+  async restartFailedRun(runId: string, now: number): Promise<void> {
+    await this.client.batch([
+      {
+        sql: `DELETE FROM safety_scenario_results WHERE run_id = ?
+          AND EXISTS (SELECT 1 FROM safety_runs WHERE id = ? AND status = 'failed')`,
+        args: [runId, runId],
+      },
+      {
+        sql: `UPDATE safety_runs SET status = 'running', current_scenario = 0, report_root = NULL,
+          error_code = NULL, error_message = NULL, updated_at = ?, completed_at = NULL
+          WHERE id = ? AND status = 'failed'`,
+        args: [now, runId],
+      },
+    ], "write");
+  }
+
   async markInterrupted(
     runId: string,
     code: string,

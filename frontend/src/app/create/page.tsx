@@ -393,7 +393,7 @@ export default function CreatePage() {
               <span>Preview seal</span>
               <span className="font-mono">seed · {previewSeed.toString(16).slice(0, 6)}</span>
             </div>
-            <div className="bg-white border border-[var(--hanami-rule)] aspect-square flex items-center justify-center p-4">
+            <div className="bg-[var(--hanami-paper-raised)] border border-[var(--hanami-rule)] aspect-square flex items-center justify-center p-4">
               <Seal seed={previewSeed} className="w-[80%] h-[80%]" />
             </div>
             <p className="mt-4 text-xs text-[var(--hanami-ink-soft)] leading-relaxed">

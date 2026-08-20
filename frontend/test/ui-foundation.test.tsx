@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AsyncNotice } from "@/components/ui/AsyncNotice";
 import { Button } from "@/components/ui/Button";
@@ -35,5 +35,20 @@ describe("production UI primitives", () => {
     expect(screen.getByRole("link", { name: "Create" })).toHaveAttribute("href", "/create");
     expect(screen.getByRole("link", { name: "Gallery" })).toHaveAttribute("href", "/gallery");
     expect(screen.getByRole("link", { name: "Mine" })).toHaveAttribute("href", "/mine");
+  });
+
+  it("persists an accessible light and dark theme choice", () => {
+    window.localStorage.setItem("hanami-theme", "light");
+    document.documentElement.dataset.theme = "light";
+    const view = render(<AppHeader />);
+
+    const toggle = within(view.container).getByRole("button", { name: "Switch to dark mode" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(toggle);
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(window.localStorage.getItem("hanami-theme")).toBe("dark");
+    expect(toggle).toHaveAccessibleName("Switch to light mode");
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
   });
 });

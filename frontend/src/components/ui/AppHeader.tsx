@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function AppHeader({ actions }: { actions?: ReactNode }) {
   return (
@@ -16,7 +17,10 @@ export function AppHeader({ actions }: { actions?: ReactNode }) {
           <Link href="/gallery">Gallery</Link>
           <Link href="/mine">Mine</Link>
         </nav>
-        {actions}
+        <div className="app-header__controls">
+          <ThemeToggle />
+          {actions}
+        </div>
       </div>
     </header>
   );
