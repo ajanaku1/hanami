@@ -94,6 +94,15 @@ function applicantTurnCount(history: ChatTurn[]): number {
   return history.filter((t) => t.role === "user").length;
 }
 
+export function decisionForTurn(reply: string, turns: number, mustDecide: boolean): Decision | null {
+  const decision = parseDecisionTag(reply);
+  if (turns < MIN_TURNS && decision?.kind === "approve") return null;
+  if (mustDecide && !decision) {
+    return { kind: "reject", reasoning: "Conversation exhausted without a clear verdict." };
+  }
+  return decision;
+}
+
 /// One bouncer turn. Caller appends `reply` to history before calling again with the next applicant message.
 /// Forces a decision when applicantTurnCount reaches MAX_TURNS even if the model didn't tag one.
 export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
@@ -114,10 +123,7 @@ export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
   ];
 
   const { content, trace, attestation } = await infer(messages, mayDecide);
-  let decision = parseDecisionTag(content);
-  if (mustDecide && !decision) {
-    decision = { kind: "reject", reasoning: "Conversation exhausted without a clear verdict." };
-  }
+  const decision = decisionForTurn(content, turns, mustDecide);
   return { reply: content, trace, decision, attestation };
 }
 
