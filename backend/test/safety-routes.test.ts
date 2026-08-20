@@ -44,11 +44,17 @@ async function setup(rateLimit = 10) {
   await applyMigrations(client);
   const repository = new SafetyRepository(client, () => "11111111-1111-4111-8111-111111111111");
   const uploads: string[] = [];
+  let activeUploads = 0;
+  let maxConcurrentUploads = 0;
   const scheduled: string[] = [];
   const routes = createSafetyRoutes({
     repository,
     uploadText: async (text) => {
+      activeUploads += 1;
+      maxConcurrentUploads = Math.max(maxConcurrentUploads, activeUploads);
+      await new Promise((resolve) => setTimeout(resolve, 0));
       uploads.push(text);
+      activeUploads -= 1;
       return `0x${uploads.length.toString(16).padStart(64, "0")}`;
     },
     loadCampaign: async () => null,
@@ -61,7 +67,7 @@ async function setup(rateLimit = 10) {
   });
   const app = new Hono();
   app.route("/api", routes);
-  return { app, repository, uploads, scheduled };
+  return { app, repository, uploads, scheduled, maxConcurrentUploads: () => maxConcurrentUploads };
 }
 
 function parse(response: Response): Promise<Record<string, unknown>> {
@@ -98,6 +104,21 @@ describe("safety routes", () => {
     assert.equal(serialized.includes("PRIVATE_LOREBOOK_NEEDLE"), false);
     assert.equal(serialized.includes("personaUri"), false);
     assert.equal(serialized.includes("lorebookUri"), false);
+  });
+
+  test("serializes private content uploads that share one 0G signer", async () => {
+    const { app, maxConcurrentUploads } = await setup();
+    const contentHash = hashBouncerContent(persona, lorebook);
+    const auth = await authorization(owner, "draft", "sakura-society", contentHash);
+
+    const response = await app.request("/api/safety-runs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scope: "draft", slug: "sakura-society", persona, lorebook, ...auth }),
+    });
+
+    assert.equal(response.status, 202);
+    assert.equal(maxConcurrentUploads(), 1);
   });
 
   test("rejects a signature that does not bind the submitted content", async () => {

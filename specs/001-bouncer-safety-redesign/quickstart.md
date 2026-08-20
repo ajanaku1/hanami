@@ -47,7 +47,7 @@ Expected:
   action-scoped applicant retry, and safety panel semantics;
 - all 16 existing contract tests remain green with no contract diff.
 
-Recorded on 2026-08-20: 36 backend tests, 20 frontend tests, and 16 Foundry tests passed.
+Recorded on 2026-08-20: 37 backend tests, 20 frontend tests, and 16 Foundry tests passed.
 The frontend lint gate also passed. The production build is repeated in the release verifier with
 network access because `next/font` downloads the three pinned Google font families at build time.
 
@@ -119,6 +119,10 @@ Expected:
 
 Only after deterministic checks pass, start one real draft safety run from the deployed or local app
 using the configured mainnet backend.
+
+The deployed responsive fixture pass on 2026-08-20 covered Applicant and Admin at 1280x800 and
+390x844. The mobile document width remained 390 px on both routes, and the Admin fixture rendered
+nine applicant records without page-level overflow.
 
 Expected:
 

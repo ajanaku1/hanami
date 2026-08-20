@@ -114,7 +114,7 @@ checksh release "README and Wave 3 evidence name the new gate and preserve the v
 '
 
 checksh live "deployed frontend exposes the Wave 3 safety experience" '
-  curl --max-time 30 -fsS https://hanami-hazel.vercel.app/create | grep -qi "Bouncer Safety Report"
+  curl --max-time 30 -fsS https://hanami-hazel.vercel.app/create | grep -qi "Test this exact bouncer"
 '
 checksh live "deployed backend exposes the safety API contract" '
   code=$(curl --max-time 30 -sS -o /dev/null -w "%{http_code}" \
@@ -132,7 +132,7 @@ checksh live "0G mainnet registry and factory addresses contain code" '
   for address in 0x764883319e51e46F683aB54D93F26bcBb74A7030 0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4; do
     body=$(curl --max-time 30 -fsS https://evmrpc.0g.ai \
       -H "content-type: application/json" \
-      --data "{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"id\\\":1,\\\"method\\\":\\\"eth_getCode\\\",\\\"params\\\":[\\\"$address\\\",\\\"latest\\\"]}") || exit 1
+      --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getCode\",\"params\":[\"$address\",\"latest\"]}") || exit 1
     printf "%s" "$body" | grep -Eq "\\\"result\\\":\\\"0x[0-9a-fA-F]{10,}\\\"" || exit 1
   done
 '

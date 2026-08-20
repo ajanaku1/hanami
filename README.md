@@ -7,7 +7,7 @@ An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
 [![Tests](https://img.shields.io/badge/foundry_tests-16_passing-brightgreen)]()
-[![Wave 3](https://img.shields.io/badge/Wave_3_tests-56_passing-brightgreen)]()
+[![Wave 3](https://img.shields.io/badge/Wave_3_tests-57_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![0G Bridge](https://img.shields.io/badge/0G_Bridge-AKINDO-8B5CF6)](https://akindo.io)
 

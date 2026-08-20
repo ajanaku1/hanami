@@ -21,6 +21,7 @@ This is new development from this wave, not a relabeling of the existing demo.
 | Backend-enforced mint and publication gates with legacy-public compatibility | `130905c`, campaign/prepare/visibility tests |
 | Eight-row Bouncer Safety Report and owner recovery flow | `130905c`, frontend safety tests |
 | Production redesign across all current routes | `130905c`, responsive screenshots and UI audit |
+| Refresh recovery plus transaction- and message-scoped retry | `4ec1863`, frontend recovery tests |
 | Updated architecture and verification contract | `5922490` through `130905c`, `verify.sh` |
 
 ## What predates this wave
@@ -44,6 +45,16 @@ The deployed ERC-7857 bouncer contract, CampaignFactory, applicant interview, pe
 | [Create and safety gate](images/wave3-create-desktop.png) | [Create and safety gate](images/wave3-create-mobile.png) |
 
 Additional mobile checks: [Gallery](images/wave3-gallery-mobile.png) and [Mine](images/wave3-mine-mobile.png).
+
+Post-deployment fixture checks:
+
+| Applicant | Admin |
+| --- | --- |
+| [Desktop](images/wave3-applicant-desktop.png) | [Desktop](images/wave3-admin-desktop.png) |
+| [390×844 mobile](images/wave3-applicant-mobile.png) | [390×844 mobile](images/wave3-admin-mobile.png) |
+
+Both mobile fixtures measured a 390 px document width at a 390 px viewport. The Admin fixture
+rendered nine applicant records without page-level horizontal overflow.
 
 ## Existing demo video
 

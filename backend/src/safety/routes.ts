@@ -213,10 +213,8 @@ async function createIdentity(
   if (content.personaUri) {
     return { ...partial, personaUri: content.personaUri, lorebookUri: content.lorebookUri ?? null };
   }
-  const [personaRoot, lorebookRoot] = await Promise.all([
-    dependencies.uploadText(content.persona),
-    content.lorebook ? dependencies.uploadText(content.lorebook) : Promise.resolve(null),
-  ]);
+  const personaRoot = await dependencies.uploadText(content.persona);
+  const lorebookRoot = content.lorebook ? await dependencies.uploadText(content.lorebook) : null;
   return {
     ...partial,
     personaUri: `0g://${personaRoot}`,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { zeroG } from "@/lib/wagmi";
@@ -71,9 +71,6 @@ export default function CreatePage() {
   const [err, setErr] = useState<string | null>(null);
   const [flow, setFlow] = useState<CreateFlowState>(INITIAL_CREATE_FLOW);
   const flowRef = useRef(flow);
-  useEffect(() => {
-    flowRef.current = flow;
-  }, [flow]);
   const busy = ["active", "wallet", "submitted", "confirmed"].includes(flow.status);
   const safety = useSafetyRun({
     scope: "draft",
