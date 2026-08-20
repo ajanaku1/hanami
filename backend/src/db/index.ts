@@ -1,4 +1,4 @@
-import { createClient, type InValue, type Row } from "@libsql/client";
+import { createClient, type Client, type InValue, type Row } from "@libsql/client";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,29 +14,47 @@ const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = join(here, "schema.sql");
 
 /// Runs the schema and idempotent column migrations. Call once before serving.
-export async function initDb(): Promise<void> {
-  await db.executeMultiple(readFileSync(SCHEMA_PATH, "utf8"));
-
-  const cols = await db.execute("PRAGMA table_info(campaigns)");
+async function migrateCampaigns(client: Client): Promise<void> {
+  const cols = await client.execute("PRAGMA table_info(campaigns)");
   const has = (name: string) => cols.rows.some((c) => c.name === name);
   if (!has("visibility")) {
-    await db.execute("ALTER TABLE campaigns ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'");
+    await client.execute("ALTER TABLE campaigns ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'");
   }
   if (!has("image_uri")) {
-    await db.execute("ALTER TABLE campaigns ADD COLUMN image_uri TEXT");
+    await client.execute("ALTER TABLE campaigns ADD COLUMN image_uri TEXT");
   }
   if (!has("rep_score")) {
-    await db.execute("ALTER TABLE campaigns ADD COLUMN rep_score INTEGER NOT NULL DEFAULT 0");
+    await client.execute("ALTER TABLE campaigns ADD COLUMN rep_score INTEGER NOT NULL DEFAULT 0");
   }
+  if (!has("publication_policy")) {
+    await client.execute(
+      "ALTER TABLE campaigns ADD COLUMN publication_policy TEXT NOT NULL DEFAULT 'certification-required'",
+    );
+    await client.execute(
+      "UPDATE campaigns SET publication_policy = 'legacy-public' WHERE visibility = 'public'",
+    );
+  }
+}
 
-  const appCols = await db.execute("PRAGMA table_info(applicants)");
+async function migrateApplicants(client: Client): Promise<void> {
+  const appCols = await client.execute("PRAGMA table_info(applicants)");
   const hasApp = (name: string) => appCols.rows.some((c) => c.name === name);
   if (!hasApp("transcript_uri")) {
-    await db.execute("ALTER TABLE applicants ADD COLUMN transcript_uri TEXT");
+    await client.execute("ALTER TABLE applicants ADD COLUMN transcript_uri TEXT");
   }
   if (!hasApp("attestation_json")) {
-    await db.execute("ALTER TABLE applicants ADD COLUMN attestation_json TEXT");
+    await client.execute("ALTER TABLE applicants ADD COLUMN attestation_json TEXT");
   }
+}
+
+export async function applyMigrations(client: Client): Promise<void> {
+  await client.executeMultiple(readFileSync(SCHEMA_PATH, "utf8"));
+  await migrateCampaigns(client);
+  await migrateApplicants(client);
+}
+
+export async function initDb(): Promise<void> {
+  await applyMigrations(db);
 }
 
 /// libSQL Row objects don't JSON-serialize cleanly, so we flatten each row into a plain

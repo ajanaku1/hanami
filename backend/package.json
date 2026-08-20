@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "build": "tsc",
+    "test": "node --disable-warning=DEP0205 --import tsx --test test/**/*.test.ts",
     "hello:inference": "tsx scripts/hello-inference.ts",
     "hello:storage": "tsx scripts/hello-storage.ts"
   },

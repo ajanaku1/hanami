@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
   finalized_at      INTEGER,              -- set when Merkle root published
   merkle_root       TEXT,                 -- 0x... hex
   visibility        TEXT NOT NULL DEFAULT 'private', -- 'public' | 'private'
-  rep_score         INTEGER NOT NULL DEFAULT 0       -- mirror of the bouncer iNFT's on-chain repScore (canonical = chain)
+  rep_score         INTEGER NOT NULL DEFAULT 0,      -- mirror of the bouncer iNFT's on-chain repScore (canonical = chain)
+  publication_policy TEXT NOT NULL DEFAULT 'certification-required'
 );
 
 CREATE INDEX IF NOT EXISTS idx_campaigns_owner ON campaigns(owner_address);
@@ -80,3 +81,43 @@ CREATE TABLE IF NOT EXISTS pending_tx (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pending_tx_status ON pending_tx(status);
+
+-- Wave 3 safety certification. Only content-addressed URIs and privacy-safe decision summaries
+-- live here; persona, lorebook, simulated messages, replies, and reasoning are deliberately absent.
+CREATE TABLE IF NOT EXISTS safety_runs (
+  id                TEXT PRIMARY KEY,
+  scope             TEXT NOT NULL,
+  slug              TEXT NOT NULL,
+  owner_address     TEXT NOT NULL,
+  content_hash      TEXT NOT NULL,
+  persona_uri       TEXT NOT NULL,
+  lorebook_uri      TEXT,
+  status            TEXT NOT NULL DEFAULT 'running',
+  current_scenario  INTEGER NOT NULL DEFAULT 0,
+  report_root       TEXT,
+  error_code        TEXT,
+  error_message     TEXT,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL,
+  completed_at      INTEGER,
+  UNIQUE(scope, slug, owner_address, content_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_safety_runs_identity
+  ON safety_runs(scope, slug, owner_address, content_hash);
+
+CREATE TABLE IF NOT EXISTS safety_scenario_results (
+  run_id             TEXT NOT NULL REFERENCES safety_runs(id) ON DELETE CASCADE,
+  scenario_id        TEXT NOT NULL,
+  category           TEXT NOT NULL,
+  expected_decision  TEXT NOT NULL,
+  actual_decision    TEXT,
+  tee_verified       INTEGER,
+  status             TEXT NOT NULL,
+  turn_count         INTEGER NOT NULL DEFAULT 0,
+  error_code         TEXT,
+  updated_at         INTEGER NOT NULL,
+  PRIMARY KEY(run_id, scenario_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_safety_results_run ON safety_scenario_results(run_id);
