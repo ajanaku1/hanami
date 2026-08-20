@@ -122,6 +122,33 @@ export class SafetyRepository {
     return run?.status === "passed" && run.reportRoot ? run : null;
   }
 
+  async findExactRun(
+    identity: Pick<SafetyRunIdentity, "scope" | "slug" | "ownerAddress" | "contentHash">,
+  ): Promise<SafetyRunView | null> {
+    const row = await this.first<RunRow>(
+      `SELECT * FROM safety_runs WHERE scope = ? AND slug = ?
+       AND owner_address = ? AND content_hash = ?`,
+      [identity.scope, identity.slug, identity.ownerAddress.toLowerCase(), identity.contentHash],
+    );
+    return row ? this.getRun(row.id) : null;
+  }
+
+  async findLatestCampaignRun(source: {
+    slug: string;
+    ownerAddress: string;
+    personaUri: string;
+    lorebookUri: string | null;
+  }): Promise<SafetyRunView | null> {
+    const row = await this.first<RunRow>(
+      `SELECT * FROM safety_runs WHERE scope = 'campaign' AND slug = ?
+       AND owner_address = ? AND persona_uri = ?
+       AND COALESCE(lorebook_uri, '') = COALESCE(?, '')
+       ORDER BY updated_at DESC LIMIT 1`,
+      [source.slug, source.ownerAddress.toLowerCase(), source.personaUri, source.lorebookUri],
+    );
+    return row ? this.getRun(row.id) : null;
+  }
+
   async markPassed(runId: string, reportRoot: string, now: number): Promise<void> {
     await this.client.execute({
       sql: `UPDATE safety_runs SET status = 'passed', current_scenario = 8, report_root = ?,
@@ -156,6 +183,13 @@ export class SafetyRepository {
       sql: `UPDATE safety_runs SET status = 'interrupted', error_code = ?, error_message = ?,
         updated_at = ?, completed_at = NULL WHERE id = ?`,
       args: [code, message, now, runId],
+    });
+  }
+
+  async promoteDraftToCampaign(runId: string, now: number): Promise<void> {
+    await this.client.execute({
+      sql: "UPDATE safety_runs SET scope = 'campaign', updated_at = ? WHERE id = ? AND scope = 'draft' AND status = 'passed'",
+      args: [now, runId],
     });
   }
 

@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useSignMessage, useSwitchChain, useWriteContract } from "wagmi";
 import { zeroG } from "@/lib/wagmi";
 import type { Address, Hex } from "viem";
 import { create, personaPresets } from "@/copy";
@@ -22,6 +21,12 @@ import {
   tokenIdFromMintLogs,
   campaignAddressFromLogs,
 } from "@/lib/contracts";
+import { useSafetyRun } from "@/hooks/useSafetyRun";
+import { SafetyReport } from "@/components/safety/SafetyReport";
+import { Button } from "@/components/ui/Button";
+import { AsyncNotice } from "@/components/ui/AsyncNotice";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { Field } from "@/components/ui/Field";
 
 const CHAINS = [
   { value: "ethereum", label: "Ethereum" },
@@ -38,7 +43,7 @@ type Stage = "prepare" | "mint" | "authorize" | "campaign" | "index" | "done";
 type StageStatus = "pending" | "active" | "done" | "failed";
 
 const STAGE_LABELS: Record<Stage, string> = {
-  prepare: "Uploading persona + generating portrait",
+  prepare: "Reusing certified roots + generating portrait",
   mint: "Mint your bouncer iNFT (signature 1/3)",
   authorize: "Authorize the AI bouncer (signature 2/3)",
   campaign: "Deploy your campaign (signature 3/3)",
@@ -77,17 +82,29 @@ export default function CreatePage() {
   const [wlSize, setWlSize] = useState(100);
   const [persona, setPersona] = useState("");
   const [lorebook, setLorebook] = useState("");
-  const [visibility, setVisibility] = useState<"public" | "private">("private");
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient({ chainId: zeroG.id });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
+  const { signMessageAsync } = useSignMessage();
   const [result, setResult] = useState<CreateCampaignResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [flow, setFlow] = useState<FlowState>(initialFlow);
   const flowRef = useRef(flow);
-  flowRef.current = flow;
+  useEffect(() => {
+    flowRef.current = flow;
+  }, [flow]);
   const busy = flow.status === "active";
+  const safety = useSafetyRun({
+    scope: "draft",
+    slug,
+    persona,
+    lorebook,
+    ownerAddress: address,
+    signMessage: (message) => signMessageAsync({ message }),
+  });
+  const safetyBusy = safety.phase === "awaiting-signature" || safety.phase === "running";
+  const safetyPassed = safety.phase === "passed" && safety.run?.status === "passed";
 
   // preview seal seeded by the slug (or persona length as a fallback) so it changes as you type
   const previewSeed = useMemo(() => {
@@ -99,7 +116,14 @@ export default function CreatePage() {
 
   async function runPrepare(): Promise<PrepareCampaignResult> {
     if (flowRef.current.prepared) return flowRef.current.prepared;
-    const prep = await api.prepareCampaign({ slug, persona, lorebook, ownerAddress: address! });
+    if (!safety.run || safety.run.status !== "passed") throw new Error("Pass the Bouncer Safety Report before minting.");
+    const prep = await api.prepareCampaign({
+      slug,
+      persona,
+      lorebook,
+      ownerAddress: address!,
+      safetyRunId: safety.run.id,
+    });
     setFlow((f) => ({ ...f, prepared: prep }));
     return prep;
   }
@@ -152,6 +176,7 @@ export default function CreatePage() {
   async function submit() {
     if (!address) { setErr("connect a wallet first"); return; }
     if (!publicClient) { setErr("rpc not ready — wait a moment and try again"); return; }
+    if (!safetyPassed) { setErr("Run and pass the gasless safety test before minting."); return; }
     setErr(null);
     try {
       // Mint must happen on 0G mainnet. We call switchChain unconditionally — it's a no-op if
@@ -180,7 +205,7 @@ export default function CreatePage() {
         targetChain,
         wlSizeCap: wlSize,
         ownerAddress: address,
-        visibility,
+        visibility: "private",
         personaURI: prep.personaURI,
         lorebookURI: prep.lorebookURI,
         imageURI: prep.imageURI,
@@ -189,6 +214,7 @@ export default function CreatePage() {
         authorizeTx: flowRef.current.authorizeTx!,
         campaignAddress,
         campaignTx: flowRef.current.campaignTx!,
+        safetyRunId: safety.run!.id,
       });
       setResult(indexed);
       setFlow((f) => ({ ...f, stage: "done", status: "done" }));
@@ -205,7 +231,7 @@ export default function CreatePage() {
       <>
         <PetalsCanvas />
         <Header />
-        <main className="relative z-10 max-w-[1240px] mx-auto px-10 py-16 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-16 items-start">
+        <main className="relative z-10 max-w-[1240px] mx-auto px-5 sm:px-10 py-12 sm:py-16 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-12 lg:gap-16 items-start">
           <div>
             <h1 className="font-serif text-[44px] leading-tight mb-3">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-3 align-middle" />
@@ -245,7 +271,7 @@ export default function CreatePage() {
             {address && (
               <div className="mt-6 border border-[var(--hanami-rule)] bg-[var(--hanami-paper-soft)] p-4">
                 <div className="text-[10px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-2">visibility</div>
-                <VisibilityToggle slug={result.slug} ownerAddress={address} current={result.visibility ?? visibility} />
+                <VisibilityToggle slug={result.slug} ownerAddress={address} current={result.visibility ?? "private"} />
                 <p className="text-[11px] text-[var(--hanami-ink-soft)] mt-3 leading-relaxed">
                   Private by default. Listing makes the bouncer visible in the public gallery and exposes the apply link.
                 </p>
@@ -261,7 +287,7 @@ export default function CreatePage() {
     <>
       <PetalsCanvas />
       <Header />
-      <main className="relative z-10 max-w-[1240px] mx-auto px-10 py-12 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-16 items-start">
+      <main className="relative z-10 max-w-[1240px] mx-auto px-5 sm:px-10 py-10 sm:py-12 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-12 lg:gap-16 items-start">
         <div>
           <h1 className="font-serif text-[44px] leading-tight mb-3">{create.heading}</h1>
           <p className="text-[var(--hanami-ink-soft)] mb-10 max-w-[58ch]">{create.intro}</p>
@@ -272,7 +298,7 @@ export default function CreatePage() {
             </Field>
 
             <Field label="Slug (used in the applicant URL)">
-              <input className={inputCls} placeholder="sakura-society-2026" value={slug}
+              <input disabled={safetyBusy} className={inputCls} placeholder="sakura-society-2026" value={slug}
                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
             </Field>
 
@@ -282,55 +308,62 @@ export default function CreatePage() {
               </select>
             </Field>
 
-            <Field label={create.wlSizeLabel} help={create.wlSizeHelp}>
+            <Field label={create.wlSizeLabel} hint={create.wlSizeHelp}>
               <input className={inputCls} type="number" min={1} value={wlSize} onChange={(e) => setWlSize(Number(e.target.value))} />
             </Field>
 
-            <Field label="Visibility" help="Public bouncers appear on /gallery and accept any wallet. Private bouncers only let the owner in until you flip the switch — you can change this any time on the admin page.">
-              <div className="flex border border-[var(--hanami-rule)]">
-                {(["private", "public"] as const).map((v) => {
-                  const active = visibility === v;
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setVisibility(v)}
-                      className={`flex-1 px-4 py-2.5 text-[12px] tracking-[0.12em] uppercase transition-colors ${
-                        active
-                          ? "bg-[var(--hanami-ink)] text-[var(--hanami-paper)]"
-                          : "hover:bg-[var(--hanami-paper-soft)]"
-                      }`}
-                    >
-                      <span
-                        className={`inline-block w-1.5 h-1.5 rounded-full mr-2 align-middle ${
-                          v === "public" ? "bg-[var(--hanami-moss)]" : "bg-[var(--hanami-stamp)]"
-                        }`}
-                      />
-                      {v}
-                    </button>
-                  );
-                })}
-              </div>
-            </Field>
+            <section aria-labelledby="publication-heading">
+              <h2 id="publication-heading" className="text-sm mb-1.5">Publication</h2>
+              <p className="text-xs text-[var(--hanami-ink-soft)] mb-2 max-w-[58ch]">
+                Every new campaign begins private. Its certified report travels into Admin, where the owner can publish deliberately.
+              </p>
+              <div className="ui-notice" data-tone="info">Private by default · publication stays backend-gated</div>
+            </section>
 
-            <Field label={create.personaLabel} help={create.personaHelp}>
+            <fieldset className="ui-field">
+              <legend className="ui-field__label">{create.personaLabel}</legend>
+              <p className="ui-field__hint">{create.personaHelp}</p>
               <div className="flex flex-wrap gap-2 mb-2 text-xs">
                 {Object.values(personaPresets).map((p) => (
-                  <button key={p.label} type="button"
+                  <button key={p.label} type="button" disabled={safetyBusy}
                     className="px-3 py-1 border border-[var(--hanami-rule)] hover:border-[var(--hanami-ink-soft)] text-[var(--hanami-ink-soft)]"
                     onClick={() => setPersona(p.seed)}>
                     {p.label}
                   </button>
                 ))}
               </div>
-              <textarea className={`${inputCls} min-h-[180px]`} placeholder={create.personaPlaceholder} value={persona} onChange={(e) => setPersona(e.target.value)} />
+              <textarea aria-label={create.personaLabel} disabled={safetyBusy} className={`${inputCls} min-h-[180px]`} placeholder={create.personaPlaceholder} value={persona} onChange={(e) => setPersona(e.target.value)} />
+            </fieldset>
+
+            <Field label={create.lorebookLabel} hint={create.lorebookHelp}>
+              <textarea disabled={safetyBusy} className={`${inputCls} min-h-[120px]`} value={lorebook} onChange={(e) => setLorebook(e.target.value)} />
             </Field>
 
-            <Field label={create.lorebookLabel} help={create.lorebookHelp}>
-              <textarea className={`${inputCls} min-h-[120px]`} value={lorebook} onChange={(e) => setLorebook(e.target.value)} />
-            </Field>
+            <section className="border-t border-[var(--hanami-rule)] pt-7">
+              <div className="flex flex-wrap items-end justify-between gap-5 mb-5">
+                <div>
+                  <p className="eyebrow">Readiness gate · gasless</p>
+                  <h2 className="font-serif text-[32px]">Test this exact bouncer.</h2>
+                  <p className="text-sm text-[var(--hanami-ink-soft)] mt-2 max-w-[58ch]">
+                    Your signature authorizes eight fixed simulations. Nothing is sent on-chain and no simulated conversation is published.
+                  </p>
+                </div>
+                {!safetyPassed && (
+                  <Button
+                    onClick={safety.start}
+                    busy={safetyBusy}
+                    disabled={!isConnected || persona.length < 50 || slug.length < 3}
+                  >
+                    {safetyActionLabel(safety.phase)}
+                  </Button>
+                )}
+              </div>
+              {safety.error && !safety.run && <AsyncNotice tone="error">{safety.error}</AsyncNotice>}
+              {safety.run && <SafetyReport run={safety.run} onRetry={safety.resume} />}
+            </section>
 
-            <Field label="Campaign owner">
+            <section aria-labelledby="campaign-owner-heading">
+              <h2 id="campaign-owner-heading" className="text-sm mb-1.5">Campaign owner</h2>
               {isConnected && address ? (
                 <div className="border border-[var(--hanami-rule)] px-3 py-2 font-mono text-sm">{address}</div>
               ) : (
@@ -338,7 +371,7 @@ export default function CreatePage() {
                   <ConnectButton />
                 </div>
               )}
-            </Field>
+            </section>
 
             {(busy || flow.status === "failed") && (
               <StageProgress flow={flow} />
@@ -346,15 +379,9 @@ export default function CreatePage() {
 
             {err && <p className="text-[var(--hanami-stamp)] text-sm font-mono">{err}</p>}
 
-            <button onClick={submit} disabled={busy || !isConnected}
+            <button onClick={submit} disabled={busy || !isConnected || !safetyPassed}
               className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] disabled:opacity-40 transition-colors">
-              {busy
-                ? "Working — check your wallet"
-                : flow.status === "failed"
-                ? "Retry from where it failed"
-                : isConnected
-                ? create.submit
-                : "Connect to mint"}
+              {submitLabel({ busy, failed: flow.status === "failed", isConnected, safetyPassed })}
             </button>
           </div>
         </div>
@@ -370,7 +397,7 @@ export default function CreatePage() {
               <Seal seed={previewSeed} className="w-[80%] h-[80%]" />
             </div>
             <p className="mt-4 text-xs text-[var(--hanami-ink-soft)] leading-relaxed">
-              The seal is generated from the bouncer's tokenId at mint. This is a preview based on the slug.
+              The seal is generated from the bouncer&apos;s tokenId at mint. This is a preview based on the slug.
               The real seal is locked once you mint.
             </p>
           </div>
@@ -381,33 +408,22 @@ export default function CreatePage() {
 }
 
 function Header() {
-  return (
-    <header className="relative z-50 flex justify-between items-start px-10 py-5">
-      <div className="flex flex-col items-start">
-        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
-          <Logo size={28} />
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-          <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-        </Link>
-        <Link href="/" className="mt-1 text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>
-          ← back
-        </Link>
-      </div>
-      <ConnectButton compact />
-    </header>
-  );
+  return <AppHeader actions={<ConnectButton compact />} />;
 }
 
 const inputCls = "w-full bg-transparent border border-[var(--hanami-rule)] px-3 py-2 text-[var(--hanami-ink)] focus:outline-none focus:border-[var(--hanami-ink)] transition-colors";
 
-function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm mb-1.5">{label}</label>
-      {help && <p className="text-xs text-[var(--hanami-ink-soft)] mb-2 max-w-[58ch]">{help}</p>}
-      {children}
-    </div>
-  );
+function safetyActionLabel(phase: ReturnType<typeof useSafetyRun>["phase"]): string {
+  if (phase === "awaiting-signature") return "Confirm gasless signature";
+  if (phase === "running") return "Testing 8 scenarios";
+  return "Run safety test";
+}
+
+function submitLabel(state: { busy: boolean; failed: boolean; isConnected: boolean; safetyPassed: boolean }): string {
+  if (state.busy) return "Working — check your wallet";
+  if (state.failed) return "Retry from where it failed";
+  if (!state.isConnected) return "Connect to test";
+  return state.safetyPassed ? create.submit : "Pass safety to mint";
 }
 
 function stageStatus(stage: Stage, flow: FlowState): StageStatus {
@@ -426,18 +442,8 @@ function StageProgress({ flow }: { flow: FlowState }) {
       </div>
       {STAGES.map((stage) => {
         const status = stageStatus(stage, flow);
-        const dot = status === "done"
-          ? "bg-[var(--hanami-moss)]"
-          : status === "active"
-          ? "bg-[var(--hanami-sakura)] animate-pulse"
-          : status === "failed"
-          ? "bg-[var(--hanami-stamp)]"
-          : "bg-[var(--hanami-rule)]";
-        const text = status === "pending"
-          ? "text-[var(--hanami-ink-soft)]"
-          : status === "failed"
-          ? "text-[var(--hanami-stamp)]"
-          : "text-[var(--hanami-ink)]";
+        const dot = stageDotClass(status);
+        const text = stageTextClass(status);
         return (
           <div key={stage} className="flex items-center gap-3 text-[13px]">
             <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
@@ -447,6 +453,19 @@ function StageProgress({ flow }: { flow: FlowState }) {
       })}
     </div>
   );
+}
+
+function stageDotClass(status: StageStatus): string {
+  if (status === "done") return "bg-[var(--hanami-moss)]";
+  if (status === "active") return "bg-[var(--hanami-sakura)] animate-pulse";
+  if (status === "failed") return "bg-[var(--hanami-stamp)]";
+  return "bg-[var(--hanami-rule)]";
+}
+
+function stageTextClass(status: StageStatus): string {
+  if (status === "pending") return "text-[var(--hanami-ink-soft)]";
+  if (status === "failed") return "text-[var(--hanami-stamp)]";
+  return "text-[var(--hanami-ink)]";
 }
 
 function Row({ k, v, kind }: { k: string; v: string; kind?: "tx" | "address" }) {

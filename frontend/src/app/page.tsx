@@ -1,189 +1,97 @@
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
-import { PetalsCanvas } from "@/components/PetalsCanvas";
+import { AppHeader } from "@/components/ui/AppHeader";
 import { BouncerCard } from "@/components/BouncerCard";
 import { FeaturedBouncers } from "@/components/FeaturedBouncers";
-import { InkDivider } from "@/components/InkDivider";
+import { PetalsCanvas } from "@/components/PetalsCanvas";
+
+const PROOF_ROWS = [
+  ["01", "0G Compute", "TEE-attested screening", "Every bouncer response must arrive with verified enclave evidence."],
+  ["02", "Safety report", "Eight fixed simulations", "Thoughtful, low-effort, jailbreak, and edge-case applicants must all resolve correctly."],
+  ["03", "0G Storage", "Content-addressed evidence", "Private intelligence and public-safe report artifacts are pinned by root."],
+  ["04", "0G Chain", "Verifiable decisions", "The ERC-7857 bouncer and final applicant verdicts have durable on-chain receipts."],
+] as const;
+
+const STEPS = [
+  ["01", "Define the gate", "Write the voice, values, and private criteria that make this community specific."],
+  ["02", "Certify the bouncer", "Sign one gasless authorization. Hanami runs eight TEE-attested simulations against the exact current text."],
+  ["03", "Mint in three clear steps", "Mint the iNFT, authorize the bouncer, then create the campaign. Completed transactions are never repeated."],
+  ["04", "Interview and export", "Applicants complete a private 3–6 turn interview. Owners review outcomes and export a Merkle root."],
+] as const;
 
 export default function Home() {
   return (
     <>
       <PetalsCanvas />
-
-      <header className="relative z-50 flex justify-between items-center px-6 sm:px-10 py-5 gap-4">
-        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
-          <Logo size={28} />
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-          <span className="text-[18px] text-[var(--hanami-ink-soft)]" style={{ fontFamily: "var(--font-serif-loaded)" }}>花見</span>
-        </Link>
-        <nav className="flex items-center gap-4 sm:gap-6 text-xs tracking-[0.08em] uppercase text-[var(--hanami-ink-soft)]">
-          <Link href="/create" className="border-none">Mint</Link>
-          <Link href="/gallery" className="border-none">Gallery</Link>
-          <Link href="/mine" className="border-none">Mine</Link>
-          <a className="border-none hidden sm:inline" href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">Contract</a>
-        </nav>
-      </header>
-
-      {/* HERO */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10 grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center">
-        <div>
-          <h1 className="font-serif font-medium leading-[0.95] tracking-tight text-[44px] sm:text-[60px] lg:text-[80px] mb-4 lg:mb-[18px]">
-            An AI bouncer <span className="italic text-[var(--hanami-sakura)]">for your whitelist.</span>
-          </h1>
-          <p className="font-serif italic text-[20px] sm:text-[26px] text-[var(--hanami-ink-soft)] mb-7 max-w-[22ch]">
-            Every bouncer iNFT mints its own seal.
-          </p>
-          <p className="text-[15px] sm:text-[16px] max-w-[44ch] text-[var(--hanami-ink)] mb-9">
-            Your project sets the criteria. The bouncer holds a private conversation
-            with each applicant inside a TEE. The bouncer itself is an ERC-7857 iNFT
-            with a generated seal.
-          </p>
-          <div className="flex flex-wrap gap-5 items-center">
-            <Link href="/create" className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-7 py-3.5 text-[13px] tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors" style={{ borderBottom: "none" }}>
-              Mint a bouncer
-            </Link>
-            <Link href="/c/sakura-society-v2" className="text-[13px] text-[var(--hanami-ink-soft)]">
-              Talk to Mei-chan →
-            </Link>
-          </div>
-        </div>
-
-        <div className="justify-self-center w-full max-w-[380px]">
-          <BouncerCard tokenId={3} name="Mei-chan" subtitle="Aoyama · 23 yrs" sealRoot="0g://0552…a590" />
-          <div className="mt-6 text-center text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)]">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
-            hover or click to flip
-          </div>
-        </div>
-      </section>
-
-      <InkDivider />
-
-      {/* HOW IT WORKS */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
-        <div className="mb-12 max-w-[60ch]">
-          <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
-            How it works
-          </div>
-          <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight mb-3">From persona to Merkle root in four moves.</h2>
-          <p className="text-[var(--hanami-ink-soft)]">
-            Hanami runs the first pass on your whitelist. Your team reviews the borderline cases by hand,
-            then drops the exported root into your existing mint contract on any EVM chain.
-          </p>
-        </div>
-
-        <ol className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 list-none p-0">
-          <Step n="01" title="Write the persona">
-            Describe the bouncer in your own voice — the values, the criteria, what makes a member.
-            Persona is encrypted-by-tokenURI and stored on 0G Storage.
-          </Step>
-          <Step n="02" title="Mint the bouncer">
-            One on-chain transaction: a new ERC-7857 iNFT on 0G Chain. You get a shareable applicant link
-            and a procedural seal derived from the tokenId.
-          </Step>
-          <Step n="03" title="Applicants interview">
-            Each applicant connects their wallet and holds a 3–6 turn private conversation with the bouncer.
-            Inference runs inside a TEE; every verdict is on-chain with its attestation hash.
-          </Step>
-          <Step n="04" title="Export the root">
-            When you&apos;re ready, finalize the campaign. You get a Merkle root + proofs. Drop the root into
-            your mint contract on Ethereum, Base, Arbitrum, OP, or 0G.
-          </Step>
-        </ol>
-
-        <div className="mt-12">
-          <Link href="/create" className="text-[13px] tracking-[0.08em] uppercase">Start with a persona →</Link>
-        </div>
-      </section>
-
-      <InkDivider />
-
-      {/* FEATURED BOUNCERS */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
-        <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
-              Featured bouncers
+      <AppHeader />
+      <main className="home">
+        <section className="home-hero">
+          <div className="home-hero__copy">
+            <p className="eyebrow">Private screening · public proof</p>
+            <h1>A whitelist gate that can <em>show its work.</em></h1>
+            <p className="home-hero__lede">
+              Hanami turns your project criteria into an ERC-7857 AI bouncer, certifies it against eight fixed safety scenarios, and interviews applicants inside a TEE on 0G.
+            </p>
+            <div className="home-actions">
+              <Link href="/create" className="ui-button ui-button--primary">Create a bouncer</Link>
+              <Link href="/c/sakura-society-v2" className="home-text-link">Enter a live interview <span>↗</span></Link>
             </div>
-            <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight">Recent mints.</h2>
+            <dl className="home-trust-strip">
+              <div><dt>Safety gate</dt><dd>Strict 8 / 8</dd></div>
+              <div><dt>Inference</dt><dd>TEE verified</dd></div>
+              <div><dt>Artifacts</dt><dd>0G Storage</dd></div>
+              <div><dt>Ownership</dt><dd>ERC-7857</dd></div>
+            </dl>
           </div>
-          <Link href="/gallery" className="text-[13px] tracking-[0.08em] uppercase">See the full gallery →</Link>
-        </div>
-        <FeaturedBouncers />
-      </section>
-
-      <InkDivider />
-
-      {/* BUILT ON 0G */}
-      <section className="relative z-10 max-w-[1240px] mx-auto px-6 sm:px-10 py-10">
-        <div className="mb-12 max-w-[60ch]">
-          <div className="text-[11px] tracking-[0.18em] uppercase text-[var(--hanami-ink-soft)] mb-3">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
-            Why Hanami is on 0G
+          <div className="home-hero__object">
+            <div className="home-card-frame">
+              <BouncerCard tokenId={3} name="Mei-chan" subtitle="Aoyama · 23 yrs" sealRoot="0g://0552…a590" />
+              <div className="home-cert-stamp" aria-label="Bouncer safety certified">8 / 8<br />certified</div>
+            </div>
+            <p>Portrait / seal · activate the card to inspect</p>
           </div>
-          <h2 className="font-serif text-[32px] sm:text-[44px] leading-tight mb-3">Four primitives, one tool.</h2>
-          <p className="text-[var(--hanami-ink-soft)]">
-            The bouncer&apos;s reasoning is private but verifiable. The persona is durable. The iNFT is
-            tradable — sell the bouncer and its reputation and decision history travel with the token.
-            The Merkle root is chain-agnostic. Each piece sits on the part of 0G that fits.
-          </p>
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-          <Pillar tag="0G Compute · Sealed inference" name="The interview runs inside a TEE">
-            Every applicant turn is forwarded to a TEE-attested provider. The bouncer&apos;s criteria stay
-            private — jailbreak attempts and screenshot leaks don&apos;t expose them. We check the TEE
-            attestation on every response and reject any reply where <code>tee_verified</code> isn&apos;t true.
-          </Pillar>
-          <Pillar tag="0G Storage · KV + Log" name="Persona, lorebook, and reasoning land on 0G">
-            The bouncer&apos;s persona prompt and reference lorebook are uploaded to 0G Storage at mint.
-            Every approved decision&apos;s reasoning is also pinned. The encryptedPersonaURI on the iNFT
-            points at the storage root.
-          </Pillar>
-          <Pillar tag="0G Chain · ERC-7857 iNFT" name="The bouncer is its own NFT">
-            BouncerRegistry implements ERC-7857 — the iNFT standard. Each bouncer holds a private
-            persona pointer, accumulates a reputation score from approvals, and authorizes campaign
-            contracts to record decisions on its behalf.
-          </Pillar>
-          <Pillar tag="EIP-712 · Merkle export" name="Drops into any EVM mint">
-            The campaign&apos;s approved list exports as a Merkle root + per-applicant proofs. Paste the
-            root into your mint contract on Ethereum, Base, Arbitrum, Optimism, or 0G itself.
-            One bouncer, any chain.
-          </Pillar>
-        </div>
-      </section>
+        <section className="home-ledger" aria-labelledby="proof-heading">
+          <div className="home-section-intro">
+            <p className="eyebrow">The proof ledger</p>
+            <h2 id="proof-heading">Trust is a chain of evidence, not a badge.</h2>
+            <p>Each layer has one job. Together they make private screening reproducible without publishing private criteria or simulated conversations.</p>
+          </div>
+          <div className="proof-ledger">
+            {PROOF_ROWS.map(([number, system, title, body]) => (
+              <article key={number} className="proof-row">
+                <span>{number}</span><strong>{system}</strong><h3>{title}</h3><p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-      <footer className="relative z-10 border-t border-[var(--hanami-rule)] mt-16 px-10 py-8 flex flex-wrap gap-6 justify-between text-[11px] tracking-[0.12em] uppercase text-[var(--hanami-ink-soft)]">
+        <section className="home-workflow" aria-labelledby="workflow-heading">
+          <div className="home-section-intro">
+            <p className="eyebrow">Owner workflow</p>
+            <h2 id="workflow-heading">From private intelligence to a portable whitelist.</h2>
+          </div>
+          <ol>
+            {STEPS.map(([number, title, body]) => (
+              <li key={number}><span>{number}</span><h3>{title}</h3><p>{body}</p></li>
+            ))}
+          </ol>
+          <Link href="/create" className="home-text-link">Start with your campaign <span>→</span></Link>
+        </section>
+
+        <section className="home-featured" aria-labelledby="featured-heading">
+          <div className="home-featured__heading">
+            <div><p className="eyebrow">On the door now</p><h2 id="featured-heading">Live bouncers.</h2></div>
+            <Link href="/gallery" className="home-text-link">Open the gallery <span>→</span></Link>
+          </div>
+          <FeaturedBouncers />
+        </section>
+      </main>
+      <footer className="home-footer">
         <span>Hanami · 2026</span>
-        <span>
-          Built on 0G — Compute · Storage · Chain · ERC-7857
-        </span>
-        <a href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">
-          Registry on Chainscan →
-        </a>
+        <span>0G Compute · Storage · Chain · ERC-7857</span>
+        <a href="https://chainscan.0g.ai/address/0x764883319e51e46F683aB54D93F26bcBb74A7030" target="_blank" rel="noopener">Registry on Chainscan ↗</a>
       </footer>
     </>
-  );
-}
-
-function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
-  return (
-    <li>
-      <div className="font-mono text-[11px] tracking-[0.2em] text-[var(--hanami-sakura)] mb-3">{n}</div>
-      <div className="font-serif text-[22px] leading-tight mb-2">{title}</div>
-      <p className="text-[13px] text-[var(--hanami-ink-soft)] leading-relaxed">{children}</p>
-    </li>
-  );
-}
-
-function Pillar({ tag, name, children }: { tag: string; name: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-sakura)] mb-2 font-mono">{tag}</div>
-      <h3 className="font-serif text-[24px] leading-tight mb-3">{name}</h3>
-      <p className="text-[14px] text-[var(--hanami-ink)] leading-relaxed max-w-[52ch]">{children}</p>
-    </div>
   );
 }

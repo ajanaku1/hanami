@@ -1,3 +1,5 @@
+import type { SafetyClient } from "./safety";
+
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
 
 // Hard ceiling so a stalled backend can never leave the UI spinning forever. Generous because a
@@ -64,6 +66,7 @@ export type PrepareCampaignBody = {
   persona: string;
   lorebook: string;
   ownerAddress: string;
+  safetyRunId: string;
 };
 
 export type PrepareCampaignResult = {
@@ -73,6 +76,7 @@ export type PrepareCampaignResult = {
   personaRoot: string;
   lorebookRoot: string;
   imageRoot: string;
+  safetyReportRoot: string;
   backendAddress: string;
   registryAddress: string;
   factoryAddress: string;
@@ -93,6 +97,7 @@ export type IndexCampaignBody = {
   authorizeTx: string;
   campaignAddress: string;
   campaignTx: string;
+  safetyRunId: string;
 };
 
 export type CreateCampaignResult = {
@@ -128,6 +133,16 @@ export type Campaign = {
   approved_count: number;
   rejected_count: number;
   pending_count: number;
+  publication_policy: "legacy-public" | "certification-required";
+  safety: CampaignSafety;
+};
+
+export type CampaignSafety = {
+  state: "certified" | "legacy" | "required" | "running" | "failed" | "interrupted";
+  latestRunId: string | null;
+  reportRoot: string | null;
+  contentHash: string | null;
+  publicationEligible: boolean;
 };
 
 export type SetVisibilityBody = {
@@ -195,7 +210,7 @@ export const api = {
   listAllCampaigns: () =>
     call<{ campaigns: Campaign[] }>(`/api/campaigns`),
   setVisibility: (slug: string, body: SetVisibilityBody) =>
-    call<{ slug: string; visibility: "public" | "private" }>(`/api/campaigns/${slug}/visibility`, {
+    call<{ slug: string; visibility: "public" | "private"; safety: CampaignSafety }>(`/api/campaigns/${slug}/visibility`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -223,6 +238,15 @@ export const api = {
       : undefined;
     return call<AdminPayload>(`/api/campaigns/${slug}/admin`, { headers });
   },
+};
+
+export const safetyClient: SafetyClient = {
+  start: (body) => call("/api/safety-runs", { method: "POST", body: JSON.stringify(body) }),
+  get: (runId) => callIdempotent(`/api/safety-runs/${runId}`),
+  resume: (runId, body) => call(`/api/safety-runs/${runId}/resume`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
 };
 
 // Owner signature for viewing a private campaign's applicant feed. The nonce is a ms timestamp;

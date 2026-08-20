@@ -2,16 +2,16 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
 import { useAccount } from "wagmi";
 import { applicant } from "@/copy";
 import { api, warmBackend, type Campaign, type TurnResult } from "@/lib/api";
-import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { Portrait, pickVariant } from "@/components/Portrait";
 import { Seal } from "@/components/Seal";
 import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
+import { PageShell } from "@/components/ui/PageShell";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 type Params = { slug: string };
 type Msg = { role: "applicant" | "bouncer"; content: string };
@@ -135,6 +135,16 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
             </div>
             <h1 className="font-serif text-[40px] leading-tight mb-3">{campaign.name}</h1>
             <p className="text-[var(--hanami-ink-soft)] mb-8 max-w-[44ch]">{applicant.preConnect.body}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-[var(--hanami-rule)] mb-8 max-w-[680px]">
+              <TrustFact label="Length" value="3–6 messages" />
+              <TrustFact label="Privacy" value="Criteria stay sealed" />
+              <TrustFact label="Evidence" value="TEE on every reply" />
+            </div>
+            <div className="mb-7">
+              <StatusBadge tone={campaign.safety.state === "certified" ? "certified" : "warning"}>
+                {campaign.safety.state === "certified" ? "Safety certified" : "Legacy public bouncer"}
+              </StatusBadge>
+            </div>
             {isConnected && address ? (
               <>
                 <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2">connected</div>
@@ -216,6 +226,9 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2" />
               private · TEE
             </div>
+            <div className="text-[10px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)]">
+              turn {Math.min(6, history.filter((item) => item.role === "applicant").length + 1)} of 6
+            </div>
           </header>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-5 pr-2">
@@ -232,7 +245,12 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
                 <span className="text-[11px] tracking-[0.16em] uppercase">bouncer is thinking</span>
               </div>
             )}
-            {err && <div className="text-sm text-[var(--hanami-stamp)]">{err}</div>}
+            {err && (
+              <div className="ui-notice" data-tone="error" role="alert">
+                <p>{err}</p>
+                <button type="button" className="mt-2 underline" onClick={() => window.location.reload()}>Reconnect safely</button>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 pt-3 border-t border-[var(--hanami-rule)] flex gap-2">
@@ -281,19 +299,14 @@ function Turn({ role, content, variant, imageUri }: { role: "applicant" | "bounc
 }
 
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
+  return <PageShell width={wide ? "wide" : "narrow"}>{children}</PageShell>;
+}
+
+function TrustFact({ label, value }: { label: string; value: string }) {
   return (
-    <>
-      <PetalsCanvas />
-      <header className="relative z-10 flex justify-between items-center px-10 py-5">
-        <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
-          <Logo size={28} />
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-          <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-        </Link>
-      </header>
-      <main className={`relative z-10 mx-auto px-8 py-10 ${wide ? "max-w-[1240px]" : "max-w-[960px]"}`}>
-        {children}
-      </main>
-    </>
+    <div className="bg-[var(--hanami-paper-raised)] p-3">
+      <div className="text-[9px] uppercase tracking-[0.14em] text-[var(--hanami-ink-soft)] font-mono">{label}</div>
+      <div className="font-serif text-[17px] mt-1">{value}</div>
+    </div>
   );
 }

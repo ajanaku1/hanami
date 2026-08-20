@@ -23,7 +23,19 @@ export function FeaturedBouncers() {
       .catch(() => setState({ status: "error" }));
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    let cancelled = false;
+    api.listAllCampaigns()
+      .then((response) => {
+        if (!cancelled) setState({ status: "ready", campaigns: response.campaigns.slice(0, 3) });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (state.status === "loading") return <MarketGridSkeleton count={3} />;
   if (state.status === "error") return <FeaturedBouncersError onRetry={load} />;

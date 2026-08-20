@@ -1,12 +1,9 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useAccount, useSignMessage } from "wagmi";
-import { Logo } from "@/components/Logo";
 import { admin } from "@/copy";
 import { api, isAuthError, type AdminAuth, type AdminPayload, type Campaign } from "@/lib/api";
-import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
@@ -14,6 +11,9 @@ import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ShareBar } from "@/components/ShareBar";
 import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
+import { useSafetyRun } from "@/hooks/useSafetyRun";
+import { CampaignSafetyPanel } from "@/components/safety/CampaignSafetyPanel";
+import { PageShell } from "@/components/ui/PageShell";
 
 type Params = { slug: string };
 
@@ -33,6 +33,16 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const isPrivate = meta?.visibility === "private";
   const isOwner = Boolean(isConnected && address && meta && address.toLowerCase() === meta.owner_address.toLowerCase());
   const locked = Boolean(isPrivate && !auth);
+  const safetyRun = useSafetyRun({
+    scope: "campaign",
+    slug,
+    persona: "",
+    lorebook: "",
+    ownerAddress: address,
+    contentHash: meta?.safety.contentHash ?? undefined,
+    signMessage: (message) => signMessageAsync({ message }),
+  });
+  const safetyBusy = safetyRun.phase === "awaiting-signature" || safetyRun.phase === "running";
 
   const unlock = useCallback(async () => {
     if (!isOwner || !address) return;
@@ -102,7 +112,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
         <aside className="lg:sticky lg:top-12 lg:self-start">
           <BouncerCard tokenId={campaign.bouncer_token_id} name={campaign.name.split(" ")[0]} subtitle={`token №${campaign.bouncer_token_id}`} sealRoot={campaign.persona_uri} imageUri={campaign.image_uri} />
           <div className="mt-5">
-            <VisibilityToggle slug={campaign.slug} ownerAddress={campaign.owner_address} current={campaign.visibility} />
+            <VisibilityToggle slug={campaign.slug} ownerAddress={campaign.owner_address} current={campaign.visibility} safety={campaign.safety} />
           </div>
           <div className="mt-5">
             <ShareBar
@@ -125,6 +135,17 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
           <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-12">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--hanami-sakura)] mr-2 align-middle" />
             live · polling every 4s
+          </div>
+
+          <div className="mb-10">
+            <CampaignSafetyPanel model={{
+              safety: campaign.safety,
+              isOwner,
+              busy: safetyBusy,
+              onStart: safetyRun.start,
+              onResume: safetyRun.resume,
+              run: safetyRun.run,
+            }} />
           </div>
 
           <div className="grid grid-cols-3 gap-8 mb-16 border-y border-[var(--hanami-rule)] py-8">
@@ -159,7 +180,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
           ) : applicants.length === 0 ? (
             <p className="text-[var(--hanami-ink-soft)] text-sm">{admin.emptyFeed}</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="admin-applicant-table w-full text-sm">
               <thead className="text-[10px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] border-b border-[var(--hanami-rule)]">
                 <tr>
                   <th className="text-left py-2 font-normal">wallet</th>
@@ -246,23 +267,5 @@ function Row({ k, v, kind }: { k: string; v: string; kind?: "tx" | "address" }) 
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <PetalsCanvas />
-      <header className="relative z-10 flex justify-between items-start px-10 py-5">
-        <div className="flex flex-col gap-1.5">
-          <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
-          <Logo size={28} />
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-            <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-          </Link>
-          <Link href="/" className="text-[11px] tracking-[0.14em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>
-            ← back to home
-          </Link>
-        </div>
-        <ConnectButton compact />
-      </header>
-      <main className="relative z-10 max-w-[1240px] mx-auto px-8 py-10">{children}</main>
-    </>
-  );
+  return <PageShell actions={<ConnectButton compact />} width="wide">{children}</PageShell>;
 }

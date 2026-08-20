@@ -3,7 +3,7 @@ import { Hono, type Context, type Next } from "hono";
 import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { z } from "zod";
-import { get, all, run, initDb } from "./db/index.js";
+import { db, get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
@@ -15,6 +15,22 @@ import type { Hex } from "viem";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SafetyRepository } from "./safety/repository.js";
+import { SafetyRunner, type SafetyInference } from "./safety/runner.js";
+import { createSafetyRoutes } from "./safety/routes.js";
+import { hashBouncerContent } from "./safety/content-hash.js";
+import {
+  CertificationError,
+  promoteCertifiedDraft,
+  requireCertifiedDraft,
+  requiredNewCampaignPublication,
+} from "./safety/certification.js";
+import {
+  PublicationError,
+  decideVisibilityChange,
+  deriveCampaignSafety,
+  type CampaignPublicationSource,
+} from "./safety/publication.js";
 
 // Local PNG cache. 0G Storage is the canonical home (rootHash committed on-chain), but
 // finalityRequired:false uploads aren't immediately downloadable via the indexer — the file
@@ -81,6 +97,7 @@ const prepareBody = z.object({
   persona: z.string().min(50),
   lorebook: z.string().default(""),
   ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  safetyRunId: z.string().uuid(),
 });
 
 app.post("/api/campaigns/prepare", async (c) => {
@@ -91,8 +108,15 @@ app.post("/api/campaigns/prepare", async (c) => {
   const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
 
-  const personaUp = await uploadText(body.persona);
-  const loreUp = body.lorebook ? await uploadText(body.lorebook) : { rootHash: "" };
+  let certified;
+  try {
+    certified = await requireCertifiedDraft(safetyRepository, body);
+  } catch (error) {
+    if (error instanceof CertificationError) {
+      return c.json({ error: { code: error.code, message: error.message } }, error.status);
+    }
+    throw error;
+  }
 
   // Portrait gen + upload. 90s cap so a stuck mainnet storage node can't hang the prepare call.
   // On failure we still return success with imageURI="" — the user can mint without a portrait,
@@ -118,12 +142,13 @@ app.post("/api/campaigns/prepare", async (c) => {
   }
 
   return c.json({
-    personaURI: `0g://${personaUp.rootHash}`,
-    lorebookURI: loreUp.rootHash ? `0g://${loreUp.rootHash}` : "",
+    personaURI: certified.personaUri,
+    lorebookURI: certified.lorebookUri ?? "",
     imageURI: imageRoot ? `0g://${imageRoot}` : "",
-    personaRoot: personaUp.rootHash,
-    lorebookRoot: loreUp.rootHash || "",
+    personaRoot: certified.personaUri.slice(5),
+    lorebookRoot: certified.lorebookUri?.slice(5) ?? "",
     imageRoot: imageRoot || "",
+    safetyReportRoot: certified.reportRoot,
     backendAddress,
     registryAddress: BOUNCER_REGISTRY,
     factoryAddress: CAMPAIGN_FACTORY,
@@ -148,12 +173,14 @@ const indexBody = z.object({
   authorizeTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   campaignAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   campaignTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  safetyRunId: z.string().uuid(),
 });
 
 app.post("/api/campaigns/index", async (c) => {
   const parsed = indexBody.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const body = parsed.data;
+  const publication = requiredNewCampaignPublication();
 
   const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
@@ -167,9 +194,24 @@ app.post("/api/campaigns/index", async (c) => {
   const authorized = await readIsAuthorized(tokenId, backendAddress);
   if (!authorized) return c.json({ error: "backend not authorized on iNFT" }, 400);
 
+  try {
+    await promoteCertifiedDraft(safetyRepository, {
+      safetyRunId: body.safetyRunId,
+      slug: body.slug,
+      ownerAddress: body.ownerAddress,
+      personaUri: body.personaURI,
+      lorebookUri: body.lorebookURI || null,
+    });
+  } catch (error) {
+    if (error instanceof CertificationError) {
+      return c.json({ error: { code: error.code, message: error.message } }, error.status);
+    }
+    throw error;
+  }
+
   await run(`
-    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, publication_policy, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     body.slug,
     body.name,
@@ -182,7 +224,8 @@ app.post("/api/campaigns/index", async (c) => {
     body.lorebookURI || null,
     body.imageURI || null,
     body.ownerAddress.toLowerCase(),
-    body.visibility,
+    publication.visibility,
+    publication.publicationPolicy,
     Math.floor(Date.now() / 1000),
   ]);
 
@@ -196,7 +239,7 @@ app.post("/api/campaigns/index", async (c) => {
     imageURI: body.imageURI || null,
     personaRoot: body.personaURI.slice(5),
     lorebookRoot: body.lorebookURI ? body.lorebookURI.slice(5) : null,
-    visibility: body.visibility,
+    visibility: publication.visibility,
   });
 });
 
@@ -208,23 +251,53 @@ const campaignWithCountsSql = `
   FROM campaigns c
 `;
 
+type CampaignPublicationRow = {
+  slug: string;
+  owner_address: string;
+  visibility: "public" | "private";
+  publication_policy: "legacy-public" | "certification-required";
+  persona_uri: string;
+  lorebook_uri: string | null;
+};
+
+function publicationSource(row: CampaignPublicationRow): CampaignPublicationSource {
+  return {
+    slug: row.slug,
+    ownerAddress: row.owner_address,
+    visibility: row.visibility,
+    publicationPolicy: row.publication_policy,
+    personaUri: row.persona_uri,
+    lorebookUri: row.lorebook_uri,
+  };
+}
+
+async function withCampaignSafety<T extends CampaignPublicationRow>(row: T, includeContentHash = false) {
+  const safety = await deriveCampaignSafety(safetyRepository, publicationSource(row));
+  if (includeContentHash && !safety.contentHash) {
+    const persona = await fetchText(row.persona_uri);
+    const lorebook = row.lorebook_uri ? await fetchText(row.lorebook_uri) : "";
+    safety.contentHash = hashBouncerContent(persona, lorebook);
+  }
+  return { ...row, safety };
+}
+
 app.get("/api/campaigns/:slug", async (c) => {
   const slug = c.req.param("slug");
-  const row = await get(`${campaignWithCountsSql} WHERE c.slug = ?`, [slug]);
+  const row = await get<CampaignPublicationRow & Record<string, unknown>>(`${campaignWithCountsSql} WHERE c.slug = ?`, [slug]);
   if (!row) return c.json({ error: "not found" }, 404);
-  return c.json(row);
+  return c.json(await withCampaignSafety(row, true));
 });
 
 app.get("/api/campaigns", async (c) => {
   const owner = c.req.query("owner");
   if (owner) {
     if (!/^0x[a-fA-F0-9]{40}$/.test(owner)) return c.json({ error: "invalid owner address" }, 400);
-    const rows = await all(`${campaignWithCountsSql} WHERE c.owner_address = ? ORDER BY c.created_at DESC`, [owner.toLowerCase()]);
-    return c.json({ campaigns: rows });
+    const rows = await all<CampaignPublicationRow & Record<string, unknown>>(`${campaignWithCountsSql} WHERE c.owner_address = ? ORDER BY c.created_at DESC`, [owner.toLowerCase()]);
+    return c.json({ campaigns: await Promise.all(rows.map((row) => withCampaignSafety(row))) });
   }
   // public listing — every bouncer is visible; the apply/chat capability is gated per-card by visibility
-  const rows = await all(`${campaignWithCountsSql} ORDER BY c.created_at DESC`);
-  return c.json({ campaigns: rows });
+  const rows = await all<CampaignPublicationRow & Record<string, unknown>>(`${campaignWithCountsSql} ORDER BY c.created_at DESC`);
+  return c.json({ campaigns: await Promise.all(rows.map((row) => withCampaignSafety(row))) });
 });
 
 const visibilityBody = z.object({
@@ -240,7 +313,10 @@ app.post("/api/campaigns/:slug/visibility", async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
   const { visibility, signature, caller, nonce } = parsed.data;
 
-  const row = await get<{ owner_address: string }>("SELECT owner_address FROM campaigns WHERE slug = ?", [slug]);
+  const row = await get<CampaignPublicationRow>(
+    "SELECT slug, owner_address, visibility, publication_policy, persona_uri, lorebook_uri FROM campaigns WHERE slug = ?",
+    [slug],
+  );
   if (!row) return c.json({ error: "not found" }, 404);
   if (row.owner_address.toLowerCase() !== caller.toLowerCase()) return c.json({ error: "not owner" }, 403);
 
@@ -252,8 +328,26 @@ app.post("/api/campaigns/:slug/visibility", async (c) => {
   const ok = await verifyMessage({ address: caller as `0x${string}`, message, signature: signature as `0x${string}` });
   if (!ok) return c.json({ error: "signature did not verify" }, 401);
 
-  await run("UPDATE campaigns SET visibility = ? WHERE slug = ?", [visibility, slug]);
-  return c.json({ slug, visibility });
+  const currentSafety = await deriveCampaignSafety(safetyRepository, publicationSource(row));
+  let transition;
+  try {
+    transition = decideVisibilityChange(publicationSource(row), visibility, currentSafety);
+  } catch (error) {
+    if (error instanceof PublicationError) {
+      return c.json({ error: { code: error.code, message: error.message }, safety: currentSafety }, 409);
+    }
+    throw error;
+  }
+  await run("UPDATE campaigns SET visibility = ?, publication_policy = ? WHERE slug = ?", [
+    transition.visibility,
+    transition.publicationPolicy,
+    slug,
+  ]);
+  const safety = await deriveCampaignSafety(safetyRepository, {
+    ...publicationSource(row),
+    ...transition,
+  });
+  return c.json({ slug, visibility: transition.visibility, safety });
 });
 
 const turnBody = z.object({
@@ -486,7 +580,7 @@ app.post("/api/campaigns/:slug/finalize", async (c) => {
 
 app.get("/api/campaigns/:slug/admin", async (c) => {
   const slug = c.req.param("slug");
-  const campaign = await get<{ owner_address: string; visibility: string }>(
+  const campaign = await get<CampaignPublicationRow & Record<string, unknown>>(
     "SELECT * FROM campaigns WHERE slug = ?", [slug]);
   if (!campaign) return c.json({ error: "not found" }, 404);
 
@@ -521,7 +615,7 @@ app.get("/api/campaigns/:slug/admin", async (c) => {
     SUM(CASE WHEN decision='rejected' THEN 1 ELSE 0 END) AS rejected,
     SUM(CASE WHEN decision IS NULL THEN 1 ELSE 0 END) AS pending
     FROM applicants WHERE campaign_slug = ?`, [slug]);
-  return c.json({ campaign, applicants, counts });
+  return c.json({ campaign: await withCampaignSafety(campaign), applicants, counts });
 });
 
 // TEE attestation receipt for one decision, packaged for the in-UI "Verify on 0G" proof (no wallet).
@@ -654,7 +748,71 @@ async function fetchText(uri: string): Promise<string> {
   return text;
 }
 
+const safetyRepository = new SafetyRepository(db);
+const safetyInference: SafetyInference = async ({ persona, lorebook, history }) => {
+  const turn = await bouncerTurn({ persona, lorebook, history });
+  return {
+    reply: turn.reply,
+    decision: turn.decision?.kind ?? null,
+    teeVerified: turn.trace.tee_verified === true,
+  };
+};
+const safetyRunner = new SafetyRunner({
+  repository: safetyRepository,
+  infer: safetyInference,
+  uploadReport: async (report) => (await uploadText(report)).rootHash,
+});
+const activeSafetyRuns = new Set<string>();
+
+function scheduleSafetyExecution(runId: string): void {
+  if (activeSafetyRuns.has(runId)) return;
+  activeSafetyRuns.add(runId);
+  void (async () => {
+    try {
+      const safetyRun = await safetyRepository.getRun(runId);
+      if (!safetyRun) return;
+      const persona = await fetchText(safetyRun.personaUri);
+      const lorebook = safetyRun.lorebookUri ? await fetchText(safetyRun.lorebookUri) : "";
+      await safetyRunner.execute(runId, persona, lorebook);
+    } catch {
+      await safetyRepository.markInterrupted(
+        runId,
+        "STORAGE_UNAVAILABLE",
+        "Private inputs could not be loaded from 0G. Resume to retry.",
+        Math.floor(Date.now() / 1000),
+      );
+    } finally {
+      activeSafetyRuns.delete(runId);
+    }
+  })();
+}
+
+app.route("/api", createSafetyRoutes({
+  repository: safetyRepository,
+  uploadText: async (text) => (await uploadText(text)).rootHash,
+  loadCampaign: async (slug) => {
+    const campaign = await get<{
+      slug: string;
+      owner_address: string;
+      persona_uri: string;
+      lorebook_uri: string | null;
+    }>("SELECT slug, owner_address, persona_uri, lorebook_uri FROM campaigns WHERE slug = ?", [slug]);
+    return campaign ? {
+      slug: campaign.slug,
+      ownerAddress: campaign.owner_address,
+      personaUri: campaign.persona_uri,
+      lorebookUri: campaign.lorebook_uri,
+    } : null;
+  },
+  readText: fetchText,
+  scheduleExecution: scheduleSafetyExecution,
+}));
+
 await initDb();
+await safetyRepository.interruptStaleRuns(
+  Math.floor(Date.now() / 1000),
+  Math.floor(Date.now() / 1000) - 120,
+);
 
 const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port });

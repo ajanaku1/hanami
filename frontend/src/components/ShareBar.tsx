@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 type Props = {
   /** Path on the current origin, e.g. "/c/badfrogs". The absolute URL is computed client-side. */
@@ -14,12 +14,12 @@ type Props = {
 // Reusable copy-and-share row. Native clipboard for the copy button, intent URLs for X and
 // Telegram (they prefill the post / chat message with the URL + a short caption).
 export function ShareBar({ path, shareText = "Apply to my Hanami bouncer", label = "Share applicant link" }: Props) {
-  const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") setOrigin(window.location.origin);
-  }, []);
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => "",
+  );
 
   const url = origin ? `${origin}${path}` : path;
 

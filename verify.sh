@@ -84,8 +84,9 @@ checksh ui "frontend behavior, lint, and production build pass" '
 '
 checksh ui "UI audit has no major or critical violations" '
   if test -f /Users/mac/.agents/skills/ui-revamp/scripts/audit.js; then
-    node /Users/mac/.agents/skills/ui-revamp/scripts/audit.js frontend/src | grep -Eq "Critical: 0" &&
-    node /Users/mac/.agents/skills/ui-revamp/scripts/audit.js frontend/src | grep -Eq "Major: 0"
+    output=$(node /Users/mac/.agents/skills/ui-revamp/scripts/audit.js frontend/src) &&
+    (printf "%s" "$output" | grep -Eq "No violations found" ||
+      (printf "%s" "$output" | grep -Eq "Critical: 0" && printf "%s" "$output" | grep -Eq "Major: 0"))
   else
     test -d frontend/src &&
     ! grep -RIE "transition: .transform 700ms|a:hover[[:space:]]*\\{" frontend/src

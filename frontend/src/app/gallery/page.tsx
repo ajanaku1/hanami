@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
 import { api, type Campaign } from "@/lib/api";
-import { PetalsCanvas } from "@/components/PetalsCanvas";
 import { MarketCard } from "@/components/MarketCard";
 import { MarketGridSkeleton } from "@/components/Skeleton";
 import { ConnectButton } from "@/components/ConnectButton";
 import { friendlyError } from "@/lib/errors";
+import { PageShell } from "@/components/ui/PageShell";
 
 export default function GalleryPage() {
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
@@ -19,26 +18,12 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <>
-      <PetalsCanvas />
-      <header className="relative z-50 flex justify-between items-start px-10 py-5">
-        <div className="flex flex-col items-start">
-          <Link href="/" className="flex items-center gap-2.5" style={{ borderBottom: "none" }}>
-          <Logo size={28} />
-          <span className="font-serif text-[24px] tracking-wider">Hanami</span>
-            <span className="text-[18px] text-[var(--hanami-ink-soft)]">花見</span>
-          </Link>
-          <Link href="/" className="mt-1 text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] hover:text-[var(--hanami-ink)] transition-colors" style={{ borderBottom: "none" }}>
-            ← back
-          </Link>
-        </div>
-        <ConnectButton compact />
-      </header>
-
-      <main className="relative z-10 max-w-[1320px] mx-auto px-10 py-10">
+    <PageShell actions={<ConnectButton compact />} width="full">
+      <section>
+        <p className="eyebrow">Public campaigns</p>
         <h1 className="font-serif text-[56px] leading-tight mb-2">The gallery.</h1>
         <p className="text-[var(--hanami-ink-soft)] mb-2 max-w-[58ch]">
-          Every public bouncer on Hanami. Hover any card to flip from portrait to seal. Stats are live —
+          Every public bouncer on Hanami. Activate any card to flip from portrait to seal. Stats are live —
           approvals, rejections, and capacity update as applicants are interviewed.
         </p>
         {campaigns && (
@@ -67,12 +52,7 @@ export default function GalleryPage() {
             {campaigns.map((c) => <MarketCard key={c.slug} c={c} />)}
           </div>
         )}
-      </main>
-
-      <footer className="relative z-10 border-t border-[var(--hanami-rule)] mt-20 px-10 py-6 flex justify-between text-[11px] tracking-[0.12em] uppercase text-[var(--hanami-ink-soft)]">
-        <span>Hanami · 2026</span>
-        <span>Built on 0G — Compute · Storage · Chain · ERC-7857</span>
-      </footer>
-    </>
+      </section>
+    </PageShell>
   );
 }

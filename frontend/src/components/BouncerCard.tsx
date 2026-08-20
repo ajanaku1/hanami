@@ -21,7 +21,10 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, class
   const variant = pickVariant(tokenId);
 
   return (
-    <div
+    <button
+      type="button"
+      aria-label={`Show ${name} ${flipped ? "portrait" : "seal"}`}
+      aria-pressed={flipped}
       className={`relative w-full aspect-[0.72/1] ${className ?? ""}`}
       style={{ perspective: 1600 }}
       onMouseEnter={() => setHovered(true)}
@@ -29,10 +32,13 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, class
       onClick={() => setClicked((v) => !v)}
     >
       <div
+        data-testid="bouncer-card-inner"
         className="absolute inset-0"
         style={{
           transformStyle: "preserve-3d",
-          transition: "transform 700ms cubic-bezier(0.32,0.72,0.32,1)",
+          transitionProperty: "transform",
+          transitionDuration: "280ms",
+          transitionTimingFunction: "cubic-bezier(0.32,0.72,0.32,1)",
           transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
         }}
       >
@@ -75,6 +81,6 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, class
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

@@ -14,16 +14,33 @@ const CHAIN_LABEL: Record<string, string> = {
   "0g": "0G",
 };
 
+const SAFETY_LABEL: Record<Campaign["safety"]["state"], string> = {
+  certified: "Certified",
+  legacy: "Legacy public",
+  required: "Safety required",
+  running: "Safety running",
+  failed: "Safety failed",
+  interrupted: "Safety interrupted",
+};
+
+function campaignStatus(isFinalized: boolean, isPublic: boolean): "finalized" | "open" | "private" {
+  if (isFinalized) return "finalized";
+  return isPublic ? "open" : "private";
+}
+
+function campaignStatusColor(status: ReturnType<typeof campaignStatus>): string {
+  if (status === "finalized") return "var(--hanami-ink-soft)";
+  if (status === "open") return "var(--hanami-moss)";
+  return "var(--hanami-stamp)";
+}
+
 export function MarketCard({ c }: { c: Campaign }) {
   const [hovered, setHovered] = useState(false);
   const variant = pickVariant(c.bouncer_token_id);
   const isPublic = c.visibility === "public";
   const isFinalized = c.finalized_at !== null;
-  const status = isFinalized ? "finalized" : isPublic ? "open" : "private";
-  const statusColor =
-    status === "finalized" ? "var(--hanami-ink-soft)"
-    : status === "open" ? "var(--hanami-moss)"
-    : "var(--hanami-stamp)";
+  const status = campaignStatus(isFinalized, isPublic);
+  const statusColor = campaignStatusColor(status);
 
   const cap = c.wl_size_cap;
   const approved = c.approved_count ?? 0;
@@ -37,13 +54,13 @@ export function MarketCard({ c }: { c: Campaign }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* image area — flips on hover */}
+      {/* image area — flips on pointer hover */}
       <div className="relative aspect-square overflow-hidden" style={{ perspective: 1400 }}>
         <div
           className="absolute inset-0"
           style={{
             transformStyle: "preserve-3d",
-            transition: "transform 700ms cubic-bezier(0.32,0.72,0.32,1)",
+            transition: "transform 280ms cubic-bezier(0.32,0.72,0.32,1)",
             transform: hovered ? "rotateY(180deg)" : "rotateY(0deg)",
           }}
         >
@@ -65,6 +82,9 @@ export function MarketCard({ c }: { c: Campaign }) {
         <div className="absolute top-3 right-3 px-2 py-1 bg-[var(--hanami-paper)] text-[10px] tracking-[0.18em] uppercase font-mono"
              style={{ border: `1px solid var(--hanami-rule)` }}>
           №{c.bouncer_token_id}
+        </div>
+        <div className="absolute bottom-3 left-3 px-2 py-1 bg-[var(--hanami-paper)] text-[10px] tracking-[0.14em] uppercase font-mono border border-[var(--hanami-rule)]">
+          {SAFETY_LABEL[c.safety.state]}
         </div>
       </div>
 

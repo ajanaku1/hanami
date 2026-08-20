@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Inter, JetBrains_Mono } from "next/font/google";
+import { Cormorant_Garamond, JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
@@ -8,12 +8,12 @@ const serif = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
-const sans = Inter({ variable: "--font-sans-loaded", subsets: ["latin"] });
+const sans = Source_Sans_3({ variable: "--font-sans-loaded", subsets: ["latin"] });
 const mono = JetBrains_Mono({ variable: "--font-mono-loaded", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Hanami",
-  description: "An AI bouncer for your whitelist.",
+  title: "Hanami — TEE-attested whitelist screening on 0G",
+  description: "Certify an AI bouncer, screen applicants privately, and export a Merkle whitelist.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
