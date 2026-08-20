@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { decisionForTurn } from "../src/bouncer.js";
+import { buildSystemPrompt, decisionForTurn } from "../src/bouncer.js";
 
 describe("decisionForTurn", () => {
   test("ignores approvals before the three-message evidence minimum", () => {
@@ -20,5 +20,14 @@ describe("decisionForTurn", () => {
 
   test("fails closed when a required final turn omits its verdict", () => {
     assert.equal(decisionForTurn("I am still considering this.", 3, true)?.kind, "reject");
+  });
+});
+
+describe("buildSystemPrompt", () => {
+  test("binds every persona to the same general two-signal approval invariant", () => {
+    const prompt = buildSystemPrompt("private persona", "private lorebook");
+
+    assert.match(prompt, /two independent positive signals/i);
+    assert.match(prompt, /do not require every private criterion/i);
   });
 });
