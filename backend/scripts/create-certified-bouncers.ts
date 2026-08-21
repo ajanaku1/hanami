@@ -169,7 +169,10 @@ async function main(): Promise<void> {
   if (account.address.toLowerCase() !== "0x34b0ba20669f3ec4f1056853780c381e5e35f724") {
     throw new Error(`Expected owner 0x34b0…F724, received ${account.address}`);
   }
-  for (const config of configs) await create(config, account);
+  const only = process.argv.find((argument) => argument.startsWith("--only="))?.slice("--only=".length);
+  const selected = only ? configs.filter((config) => config.slug === only) : configs;
+  if (selected.length === 0) throw new Error(`Unknown --only slug: ${only}`);
+  for (const config of selected) await create(config, account);
 }
 
 void main();

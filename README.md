@@ -7,7 +7,7 @@ An AI bouncer for your NFT whitelist. Each bouncer is an ERC-7857 iNFT you own. 
 [![Solidity](https://img.shields.io/badge/Solidity-0.8-363636?logo=solidity)](https://soliditylang.org/)
 [![0G Mainnet](https://img.shields.io/badge/0G-mainnet_16661-EC4899)](https://chainscan.0g.ai/)
 [![Tests](https://img.shields.io/badge/foundry_tests-16_passing-brightgreen)]()
-[![Wave 3](https://img.shields.io/badge/Wave_3_tests-57_passing-brightgreen)]()
+[![Wave 3](https://img.shields.io/badge/Wave_3_tests-68_passing-brightgreen)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![0G Bridge](https://img.shields.io/badge/0G_Bridge-AKINDO-8B5CF6)](https://akindo.io)
 
@@ -55,7 +55,7 @@ The Wave 2 judge asked for genuine new development built on Hanami's existing 0G
 - **Persistent, recoverable execution.** Runs checkpoint after every scenario, use at most two workers with global provider pacing, survive backend restarts, and resume technical interruptions without repeating completed checks.
 - **Privacy-safe evidence on 0G Storage.** A pass uploads the content hash, scenario names, decision results, and TEE states. Reports and routine logs exclude private inputs, full simulated replies, hidden instructions, and reasoning.
 - **Backend-enforced publication.** New campaigns start private. Admin requires a matching campaign report before publication. Campaigns that were already public keep working as clearly labeled legacy campaigns; making one private permanently enables the new gate.
-- **Production redesign.** Landing, Create, Applicant, Admin, Gallery, and Mine now use a shared responsive shell, clear async states, visible focus, touch-safe controls, reduced motion, and certification labels.
+- **Production redesign.** Landing, Create, Applicant, Admin, Gallery, and Mine now use a shared responsive shell, persisted light/dark themes, clear async states, visible focus, touch-safe controls, reduced motion, and certification labels.
 
 The new implementation is isolated in three commits: [`5922490`](https://github.com/ajanaku1/hanami/commit/5922490) defines the build contract, [`138a0c8`](https://github.com/ajanaku1/hanami/commit/138a0c8) adds the resumable safety engine, and [`130905c`](https://github.com/ajanaku1/hanami/commit/130905c) ships the enforced gates and redesigned product. [Wave 3 submission notes](docs/wave3-submission.md) separate this work from Hanami's pre-existing contracts and demo.
 
@@ -85,6 +85,16 @@ The tournament rewards improving between rounds. Since the Group Stage:
 | CampaignFactory | [`0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4`](https://chainscan.0g.ai/address/0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4) |
 
 Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted directly to the project owner's wallet. Hanami never custodies the token.
+
+### Live certified bouncers
+
+| Bouncer | Token | Safety evidence | Campaign |
+|---|---:|---|---|
+| Sakura Society | #17 | [8/8 report](https://hanami-backend-ugak.onrender.com/api/safety-runs/574de9be-2265-469a-b70d-582a390eee37) · `0x9f2550…cabf6` | [Open](https://hanami-hazel.vercel.app/c/sakura-society-v2) |
+| Material Memory | #21 | [8/8 report](https://hanami-backend-ugak.onrender.com/api/safety-runs/92fba213-8cad-4c29-ac4c-f5ae91b6532e) · `0x9e1529…a7972` | [Open](https://hanami-hazel.vercel.app/c/material-memory) |
+| Slow Collectors Circle | #22 | [8/8 report](https://hanami-backend-ugak.onrender.com/api/safety-runs/953745fb-bf03-4f0a-9115-284087f6a0be) · `0x710677…3295` | [Open](https://hanami-hazel.vercel.app/c/slow-collectors-circle) |
+
+Tokens #21 and #22 are owned by `0x34b0Ba20669f3ec4F1056853780c381e5e35F724`, authorize the production backend on chain, and began private as required by the certification publication gate.
 
 ## Features
 

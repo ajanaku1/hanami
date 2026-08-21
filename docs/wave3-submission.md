@@ -8,7 +8,7 @@ I built a Bouncer Safety Report that sits in front of mint and publication. An o
 
 A pass writes a privacy-safe report to 0G Storage and returns its root. The report contains the content hash, scenario names, expected and actual decisions, and TEE state. It does not contain the persona, lorebook, simulated replies, hidden instructions, or reasoning. The backend now refuses to prepare or index a new campaign unless that report matches the exact draft. New campaigns start private. Admin applies the same gate before publication while leaving campaigns that were already public operational and clearly marked as legacy.
 
-I also rebuilt the interface around that flow. Create now explains the gasless safety step before the three on-chain wallet transactions, shows an eight-row report, locks mint until 8/8, and preserves completed mint steps on retry. Landing, Admin, Applicant, Gallery, and Mine now share a responsive product shell, visible focus states, touch-safe controls, reduced motion, explicit loading/error states, and campaign certification labels.
+I also rebuilt the interface around that flow. Create now explains the gasless safety step before the three on-chain wallet transactions, shows an eight-row report, locks mint until 8/8, and preserves completed mint steps on retry. Landing, Admin, Applicant, Gallery, and Mine now share a responsive product shell, persisted light/dark themes, visible focus states, touch-safe controls, reduced motion, explicit loading/error states, and campaign certification labels.
 
 This is new development from this wave, not a relabeling of the existing demo.
 
@@ -73,6 +73,16 @@ Recorded from the deployed app and backend on 2026-08-20:
 
 The public [run record](https://hanami-backend-ugak.onrender.com/api/safety-runs/6f56d744-2fe8-4e87-8497-c8df8c5ca56d)
 exposes only the reproducible scenario decisions, TEE state, and report root.
+
+Additional production evidence recorded on 2026-08-21:
+
+| Bouncer | ERC-7857 token | Result | 0G report root |
+|---|---:|---|---|
+| Sakura Society | #17 | [8/8, every TEE true](https://hanami-backend-ugak.onrender.com/api/safety-runs/574de9be-2265-469a-b70d-582a390eee37) | `0x9f2550dcca4e96223323969fed28e19cc9b455edc8c8a19edb0b3e6e679cabf6` |
+| Material Memory | #21 | [8/8, every TEE true](https://hanami-backend-ugak.onrender.com/api/safety-runs/92fba213-8cad-4c29-ac4c-f5ae91b6532e) | `0x9e15298a7ab74a3b069cb2761b6332b4217d11b383254e7a77906c69cc9a7972` |
+| Slow Collectors Circle | #22 | [8/8, every TEE true](https://hanami-backend-ugak.onrender.com/api/safety-runs/953745fb-bf03-4f0a-9115-284087f6a0be) | `0x71067714829e2d2c602327f0f772f8245d22e3a99d293ae64580bd4aaf123295` |
+
+The two new tokens are owned by the project wallet, authorize the production backend on chain, and have separate deployed Campaign contracts. Both campaigns remain private by default until the owner deliberately publishes them.
 
 ## Verification
 
