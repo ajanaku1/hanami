@@ -1,0 +1,108 @@
+openapi: 3.1.0
+info:
+  title: Hanami Door, Brief, Tickets API (feature 002)
+  version: 0.1.0
+paths:
+  /api/campaigns/{slug}/door/verify:
+    post:
+      summary: Verify a World ID proof and bind it to a wallet for this campaign
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [walletAddress, idkitResult]
+              properties:
+                walletAddress: { type: string, pattern: '^0x[a-fA-F0-9]{40}$' }
+                idkitResult: { type: object, description: Unmodified IDKit result payload }
+      responses:
+        '200': { description: verified, content: { application/json: { schema: { $ref: '#/components/schemas/DoorStatus' } } } }
+        '409': { description: this person has already applied (nullifier reuse) }
+        '410': { description: this campaign has closed }
+        '422': { description: proof rejected by World verify }
+        '412': { description: campaign requires a credential this proof does not carry }
+  /api/campaigns/{slug}/door/status:
+    get:
+      parameters: [{ name: wallet, in: query, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: current Door state, content: { application/json: { schema: { $ref: '#/components/schemas/DoorStatus' } } } }
+  /api/campaigns/{slug}/begin:
+    post:
+      summary: Unchanged shape; now guarded by the Door (World proof row or valid `agentkit` header)
+      responses:
+        '200': { description: greeting plus brief }
+        '402': { description: AgentKit challenge (agents only; never a payment) }
+        '403': { description: door required }
+        '409': { description: already decided / person already applied }
+        '410': { description: campaign closed }
+  /api/campaigns/{slug}/turns:
+    post:
+      summary: Unchanged shape; same guard; final response carries the Receipt
+      responses:
+        '200': { description: reply, or reply + receipt on decision, content: { application/json: { schema: { $ref: '#/components/schemas/TurnResponse' } } } }
+  /api/campaigns/{slug}/brief:
+    get:
+      parameters: [{ name: wallet, in: query, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: the applicant's own brief, content: { application/json: { schema: { $ref: '#/components/schemas/LedgerBrief' } } } }
+        '403': { description: wallet has no verified door for this campaign }
+  /api/campaigns/{slug}/roster:
+    get:
+      summary: Owner-only roster (signed message auth as existing admin routes)
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/RosterRow' } } } } }
+  /api/campaigns/{slug}/tickets/{ticketId}/revoke:
+    post:
+      summary: Owner revokes; returns the prepared transaction for the owner wallet to sign (owner-only on chain)
+      responses:
+        '200': { description: prepared tx { to, data, chainId } }
+  /api/campaigns/{slug}/settings:
+    post:
+      summary: Owner sets required_credential, close_at, ticket_expiry (signed message auth)
+      responses:
+        '200': { description: updated settings }
+        '422': { description: close or expiry in the past }
+components:
+  schemas:
+    DoorStatus:
+      type: object
+      properties:
+        state: { type: string, enum: [none, verified, used, closed, full] }
+        requiredCredential: { type: string, enum: [selfie, orb, device] }
+        method: { type: string, enum: [selfie, orb, device, agentkit], nullable: true }
+    LedgerBrief:
+      type: object
+      properties:
+        status: { type: string, enum: [ready, empty, unavailable] }
+        flipsWithin7d: { type: integer }
+        sameCounterpartySales: { type: integer }
+        medianHoldingDays: { type: number, nullable: true }
+        swapCount: { type: integer }
+        sourcesRead: { type: array, items: { type: object, properties: { name: { type: string }, subgraphId: { type: string }, ok: { type: boolean }, count: { type: integer } } } }
+        truncated: { type: boolean }
+    Receipt:
+      type: object
+      properties:
+        decision: { type: string, enum: [approved, rejected] }
+        attestationHash: { type: string }
+        attestationPath: { type: string, enum: [direct, router] }
+        nullifier: { type: string }
+        ticket: { type: object, nullable: true, properties: { id: { type: integer }, expiresAt: { type: integer }, status: { type: string } } }
+        brief: { $ref: '#/components/schemas/LedgerBrief' }
+        txHash: { type: string }
+    TurnResponse:
+      type: object
+      properties:
+        reply: { type: string }
+        decision: { type: string, nullable: true }
+        receipt: { $ref: '#/components/schemas/Receipt' }
+    RosterRow:
+      type: object
+      properties:
+        wallet: { type: string }
+        ticketId: { type: integer }
+        issuedAt: { type: integer }
+        expiresAt: { type: integer }
+        status: { type: string, enum: [live, expired, revoked] }
+        briefSummary: { type: string }
+        viaAgent: { type: string, nullable: true }

@@ -56,3 +56,7 @@ backend/.image-cache/
 *.db-wal
 *.db-shm
 .vercel
+design-wave3.md
+Goal-wave3.md
+prompt-wave3.md
+plan-wave3.md
