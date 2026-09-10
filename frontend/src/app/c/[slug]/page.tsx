@@ -3,6 +3,8 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
+import { DoorPanel } from "@/components/door/DoorPanel";
+import { useDoor } from "@/components/door/useDoor";
 import { applicant } from "@/copy";
 import { api, warmBackend, type Campaign, type TurnResult } from "@/lib/api";
 import { Portrait, pickVariant } from "@/components/Portrait";
@@ -36,6 +38,7 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const [failedAction, setFailedAction] = useState<"greeting" | "turn" | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wallet = address ?? "";
+  const door = useDoor(slug, address ?? null);
   const history = chat.history;
 
   // Warm the (free-tier) backend the moment the page opens so it wakes in the background instead of
@@ -186,12 +189,31 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
               <>
                 <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2">connected</div>
                 <div className="font-mono text-sm mb-5">{address}</div>
-                <button
-                  onClick={() => setStarted(true)}
-                  className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors"
-                >
-                  Begin
-                </button>
+                {/* The Door comes before the interview, always. Begin does not exist until a
+                    proof-of-human is bound to this wallet on this campaign. */}
+                <div className="mb-6 max-w-[44ch]">
+                  <DoorPanel
+                    model={{
+                      state: door.state,
+                      requiredCredential: door.status.requiredCredential,
+                      method: door.status.method,
+                      wallet: address,
+                      appId: process.env.NEXT_PUBLIC_WORLD_APP_ID ?? "",
+                      action: "hanami-door",
+                      rpContext: door.rpContext,
+                      onProof: (result) => void door.submitProof(result),
+                      onRetry: door.retry,
+                    }}
+                  />
+                </div>
+                {door.verified ? (
+                  <button
+                    onClick={() => setStarted(true)}
+                    className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors"
+                  >
+                    Begin
+                  </button>
+                ) : null}
                 <span className="ml-4"><ConnectButton compact /></span>
               </>
             ) : (

@@ -16,25 +16,25 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Confirm dependency approval recorded in `loop/memory/STATE.md` (feature 002 block) and, once approved, add `@worldcoin/idkit` to `frontend/package.json`, `@worldcoin/agentkit` `@x402/hono` `@x402/core` to `backend/package.json`; do not install before approval
-- [ ] T002 [P] Add new env keys to `backend/.env.example` and `frontend/.env.example` (`WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_ACTION`, `GRAPH_API_KEY`, `OG_DIRECT_ENABLED`, `OG_DIRECT_PROVIDER`, `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS`, `TICKET_GATE_ADDRESS`, `NEXT_PUBLIC_WORLD_APP_ID`); never touch `.env`
-- [ ] T003 [P] Scaffold `agent/` workspace: `agent/package.json` (tsx, typescript, viem, openai, @worldcoin/agentkit), `agent/tsconfig.json`, `agent/src/cli.ts` stub, `agent/README.md` stub
-- [ ] T004 [P] Add `verify.sh` phases `contracts|door|brief|tickets|agent|ui|release|live` as failing placeholders so the predicate exists before the work (update header comment from Wave 3 to ETHOnline 2026)
+- [x] T001 Confirm dependency approval recorded in `loop/memory/STATE.md` (feature 002 block) and, once approved, add `@worldcoin/idkit` to `frontend/package.json`, `@worldcoin/agentkit` `@x402/hono` `@x402/core` to `backend/package.json`; do not install before approval
+- [x] T002 [P] Add new env keys to `backend/.env.example` and `frontend/.env.example` (`WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_ACTION`, `GRAPH_API_KEY`, `OG_DIRECT_ENABLED`, `OG_DIRECT_PROVIDER`, `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS`, `TICKET_GATE_ADDRESS`, `NEXT_PUBLIC_WORLD_APP_ID`); never touch `.env`
+- [x] T003 [P] Scaffold `agent/` workspace: `agent/package.json` (tsx, typescript, viem, openai, @worldcoin/agentkit), `agent/tsconfig.json`, `agent/src/cli.ts` stub, `agent/README.md` stub
+- [x] T004 [P] Add `verify.sh` phases `contracts|door|brief|tickets|agent|ui|release|live` as failing placeholders so the predicate exists before the work (update header comment from Wave 3 to ETHOnline 2026)
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T005 Write failing schema test `backend/test/door-schema.test.ts` asserting new columns on `campaigns`/`applicants` and the `proofs` table with both UNIQUE constraints (data-model.md)
-- [ ] T006 Add additive migrations in `backend/src/db/schema.sql` and `backend/src/db/index.ts` (`required_credential`, `close_at`, `ticket_expiry`, `contract_version`; applicant `nullifier`, `proof_method`, `agent_id`, `brief_json`, `brief_status`, `ticket_id`, `attestation_path`; `proofs` table) until T005 passes
-- [ ] T007 [P] Write failing Foundry tests `contracts/test/Ticket.t.sol`: mint by minter only, soulbound transfer revert, `isLive` false after expiry, `revoke` only by minting campaign, `liveTicketOf`
-- [ ] T008 [P] Write failing Foundry tests `contracts/test/CampaignV2.t.sol`: `recordDecision` mints exactly one ticket on approve and none on reject, `DecisionRecordedV2` carries attestation + nullifier + ticketId, `ZeroNullifier` revert, `CampaignClosed` after `closeAt`, `CapReached`, `revokeTicket` owner-only, `hasLiveTicket` transitions, V1 suite unchanged
-- [ ] T009 Implement `contracts/src/Ticket.sol` (OZ ERC-721, `_update` revert on transfer, `expiresAt`, `revoked`, minter registry by factory) until T007 passes
-- [ ] T010 Implement `contracts/src/CampaignV2.sol` (`CampaignV2` + `CampaignFactoryV2` with `BadSchedule` checks) per `contracts/CampaignV2.interface.sol` until T008 passes
-- [ ] T011 [P] Write failing `contracts/test/TicketGate.t.sol` (accept live holder, refuse none/expired/revoked, `AlreadyMinted`) then implement `contracts/src/TicketGate.sol`
-- [ ] T012 Add `contracts/script/DeployV2.s.sol` deploying `Ticket`, `CampaignFactoryV2`, `TicketGate` against the existing `BouncerRegistry` address from env; dry-run with `forge script` (no broadcast)
-- [ ] T013 Write failing test `backend/test/tickets-chain.test.ts` for `backend/src/tickets/chain-v2.ts` (ABI encoding of `recordDecision` V2, parsing `DecisionRecordedV2` to `{ticketId}`, `hasLiveTicket` read, `revokeTicket` prepared tx) with an injected client; then implement
-- [ ] T014 Route `backend/src/og-chain.ts` `createCampaign`/`recordDecision` by `contract_version` (V1 path untouched); add failing test in `backend/test/tickets-chain.test.ts` that V1 campaigns still call the V1 ABI
+- [x] T005 Write failing schema test `backend/test/door-schema.test.ts` asserting new columns on `campaigns`/`applicants` and the `proofs` table with both UNIQUE constraints (data-model.md)
+- [x] T006 Add additive migrations in `backend/src/db/schema.sql` and `backend/src/db/index.ts` (`required_credential`, `close_at`, `ticket_expiry`, `contract_version`; applicant `nullifier`, `proof_method`, `agent_id`, `brief_json`, `brief_status`, `ticket_id`, `attestation_path`; `proofs` table) until T005 passes
+- [x] T007 [P] Write failing Foundry tests `contracts/test/Ticket.t.sol`: mint by minter only, soulbound transfer revert, `isLive` false after expiry, `revoke` only by minting campaign, `liveTicketOf`
+- [x] T008 [P] Write failing Foundry tests `contracts/test/CampaignV2.t.sol`: `recordDecision` mints exactly one ticket on approve and none on reject, `DecisionRecordedV2` carries attestation + nullifier + ticketId, `ZeroNullifier` revert, `CampaignClosed` after `closeAt`, `CapReached`, `revokeTicket` owner-only, `hasLiveTicket` transitions, V1 suite unchanged
+- [x] T009 Implement `contracts/src/Ticket.sol` (OZ ERC-721, `_update` revert on transfer, `expiresAt`, `revoked`, minter registry by factory) until T007 passes
+- [x] T010 Implement `contracts/src/CampaignV2.sol` (`CampaignV2` + `CampaignFactoryV2` with `BadSchedule` checks) per `contracts/CampaignV2.interface.sol` until T008 passes
+- [x] T011 [P] Write failing `contracts/test/TicketGate.t.sol` (accept live holder, refuse none/expired/revoked, `AlreadyMinted`) then implement `contracts/src/TicketGate.sol`
+- [x] T012 Add `contracts/script/DeployV2.s.sol` deploying `Ticket`, `CampaignFactoryV2`, `TicketGate` against the existing `BouncerRegistry` address from env; dry-run with `forge script` (no broadcast)
+- [x] T013 Write failing test `backend/test/tickets-chain.test.ts` for `backend/src/tickets/chain-v2.ts` (ABI encoding of `recordDecision` V2, parsing `DecisionRecordedV2` to `{ticketId}`, `hasLiveTicket` read, `revokeTicket` prepared tx) with an injected client; then implement
+- [x] T014 Route `backend/src/og-chain.ts` `createCampaign`/`recordDecision` by `contract_version` (V1 path untouched); add failing test in `backend/test/tickets-chain.test.ts` that V1 campaigns still call the V1 ABI
 
 **Checkpoint**: schema, contracts, and chain client ready; `forge test` green (16 existing + new)
 
@@ -46,16 +46,16 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: `/begin` without proof → 403; `/door/verify` with sandbox proof → verified; same nullifier from another wallet → 409; closed campaign → 410.
 
-- [ ] T015 [P] [US1] Write failing tests `backend/test/door-verify.test.ts` for `backend/src/door/world-verify.ts` (forwards unchanged IDKit result to v4 verify URL built from `WORLD_RP_ID`, maps success/failed/unreachable, no proof material logged)
-- [ ] T016 [P] [US1] Write failing tests `backend/test/door-proofs.test.ts` for `backend/src/door/proofs.ts` (insert ON CONFLICT DO NOTHING; nullifier reuse with different wallet → `used`; same wallet re-verify idempotent; concurrent inserts resolve to one row)
-- [ ] T017 [P] [US1] Write failing route tests `backend/test/door-routes.test.ts`: `POST /door/verify` 200/409/410/412/422, `GET /door/status`, `/begin` and `/turns` 403 without proof, 410 after `close_at`, cap-full refusal after verification, rate limit reuse (CHK029)
-- [ ] T018 [US1] Implement `backend/src/door/world-verify.ts` with injected fetch until T015 passes
-- [ ] T019 [US1] Implement `backend/src/door/proofs.ts` until T016 passes
-- [ ] T020 [US1] Implement `backend/src/door/routes.ts` and the Door guard in `backend/src/server.ts` for `/begin` and `/turns` (403 `door required`, 410 `campaign closed`, 409 `person already applied`), reusing `rateLimit` on `/door/verify`, until T017 passes
-- [ ] T021 [P] [US1] Write failing Vitest `frontend/test/door-panel.test.tsx` for `DoorPanel` states (none, pending, verified, rejected+retry, used, unavailable, closed, full) with non-color status text and focus management
-- [ ] T022 [US1] Implement `frontend/src/components/door/DoorPanel.tsx` using `IDKitRequestWidget` with preset chosen from `requiredCredential` (`selfieCheckLegacy` | `orbLegacy` | `deviceLegacy`), signal = wallet, posting the unchanged result to `/door/verify`, until T021 passes
-- [ ] T023 [US1] Wire `DoorPanel` before the chat in `frontend/src/app/c/[slug]/page.tsx`; chat box hidden until `door.state === 'verified'`; persist resume on reconnect (edge case)
-- [ ] T024 [US1] Update `verify.sh` phase `door` (backend door tests + frontend door test files exist and pass)
+- [x] T015 [P] [US1] Write failing tests `backend/test/door-verify.test.ts` for `backend/src/door/world-verify.ts` (forwards unchanged IDKit result to v4 verify URL built from `WORLD_RP_ID`, maps success/failed/unreachable, no proof material logged)
+- [x] T016 [P] [US1] Write failing tests `backend/test/door-proofs.test.ts` for `backend/src/door/proofs.ts` (insert ON CONFLICT DO NOTHING; nullifier reuse with different wallet → `used`; same wallet re-verify idempotent; concurrent inserts resolve to one row)
+- [x] T017 [P] [US1] Write failing route tests `backend/test/door-routes.test.ts`: `POST /door/verify` 200/409/410/412/422, `GET /door/status`, `/begin` and `/turns` 403 without proof, 410 after `close_at`, cap-full refusal after verification, rate limit reuse (CHK029)
+- [x] T018 [US1] Implement `backend/src/door/world-verify.ts` with injected fetch until T015 passes
+- [x] T019 [US1] Implement `backend/src/door/proofs.ts` until T016 passes
+- [x] T020 [US1] Implement `backend/src/door/routes.ts` and the Door guard in `backend/src/server.ts` for `/begin` and `/turns` (403 `door required`, 410 `campaign closed`, 409 `person already applied`), reusing `rateLimit` on `/door/verify`, until T017 passes
+- [x] T021 [P] [US1] Write failing Vitest `frontend/test/door-panel.test.tsx` for `DoorPanel` states (none, pending, verified, rejected+retry, used, unavailable, closed, full) with non-color status text and focus management
+- [x] T022 [US1] Implement `frontend/src/components/door/DoorPanel.tsx` using `IDKitRequestWidget` with preset chosen from `requiredCredential` (`selfieCheckLegacy` | `orbLegacy` | `deviceLegacy`), signal = wallet, posting the unchanged result to `/door/verify`, until T021 passes
+- [x] T023 [US1] Wire `DoorPanel` before the chat in `frontend/src/app/c/[slug]/page.tsx`; chat box hidden until `door.state === 'verified'`; persist resume on reconnect (edge case)
+- [x] T024 [US1] Update `verify.sh` phase `door` (backend door tests + frontend door test files exist and pass)
 
 **Checkpoint**: Door enforced end to end with sandbox proofs
 

@@ -199,6 +199,56 @@ export type VerifyResult =
       signature: { text: string; signature: string; signingAddress: string; provider: string; chatId: string; model: string };
     });
 
+// ---- The Door -------------------------------------------------------------------------------
+// The Door's refusals are states, not failures: 409 "already applied", 410 "closed", 422 "rejected"
+// all carry a DoorStatus body the applicant needs to read. So these calls parse the body whatever
+// the status, and only a request that never arrived becomes "unavailable".
+
+export type DoorState =
+  | "none"
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "used"
+  | "unavailable"
+  | "closed"
+  | "full";
+
+export type DoorStatus = {
+  state: DoorState;
+  requiredCredential: "selfie" | "orb" | "device";
+  method: string | null;
+};
+
+export type DoorRpContext = {
+  rp_id: string;
+  nonce: string;
+  created_at: number;
+  expires_at: number;
+  signature: string;
+};
+
+const UNAVAILABLE: DoorStatus = { state: "unavailable", requiredCredential: "orb", method: null };
+
+async function doorCall(path: string, init?: RequestInit): Promise<DoorStatus> {
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const body = (await res.json()) as Partial<DoorStatus> & { error?: string };
+    if (!body.state) return UNAVAILABLE;
+    return {
+      state: body.state,
+      requiredCredential: body.requiredCredential ?? "orb",
+      method: body.method ?? null,
+    };
+  } catch {
+    return UNAVAILABLE;
+  }
+}
+
 export const api = {
   prepareCampaign: (body: PrepareCampaignBody) =>
     call<PrepareCampaignResult>("/api/campaigns/prepare", { method: "POST", body: JSON.stringify(body) }),
@@ -229,6 +279,15 @@ export const api = {
     call<TurnResult>(`/api/campaigns/${slug}/turns`, {
       method: "POST",
       body: JSON.stringify({ walletAddress, message }),
+    }),
+  getDoorContext: (slug: string) =>
+    callIdempotent<{ rpContext: DoorRpContext | null }>(`/api/campaigns/${slug}/door/context`),
+  getDoorStatus: (slug: string, wallet: string) =>
+    doorCall(`/api/campaigns/${slug}/door/status?wallet=${wallet}`),
+  verifyDoor: (slug: string, walletAddress: string, idkitResult: unknown) =>
+    doorCall(`/api/campaigns/${slug}/door/verify`, {
+      method: "POST",
+      body: JSON.stringify({ walletAddress, idkitResult }),
     }),
   verifyDecision: (slug: string, wallet: string) =>
     call<VerifyResult>(`/api/campaigns/${slug}/verify/${wallet}`),

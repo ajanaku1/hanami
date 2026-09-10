@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 import { SafetyRepository } from "./safety/repository.js";
 import { SafetyRunner, type SafetyInference } from "./safety/runner.js";
 import { createSafetyRoutes } from "./safety/routes.js";
+import { createDoorGuard, createDoorRoutes } from "./door/routes.js";
+import { verifyWorldProof } from "./door/world-verify.js";
 import { hashBouncerContent } from "./safety/content-hash.js";
 import {
   CertificationError,
@@ -65,6 +67,15 @@ function rateLimit(opts: { key: string; limit: number; windowMs: number }) {
 app.use("/api/campaigns/prepare", rateLimit({ key: "prepare", limit: 5, windowMs: 600_000 }));
 app.use("/api/campaigns/:slug/begin", rateLimit({ key: "begin", limit: 10, windowMs: 60_000 }));
 app.use("/api/campaigns/:slug/turns", rateLimit({ key: "turns", limit: 30, windowMs: 60_000 }));
+
+// The Door. Nobody is interviewed without a verified proof-of-human bound to their wallet on this
+// campaign, so the guard is registered before the handlers it protects and answers "door required"
+// with 403, a closed campaign with 410. Agents pass the same guard: their AgentBook proof is a row
+// in the same proofs table.
+const doorNow = () => Math.floor(Date.now() / 1000);
+const doorGuard = createDoorGuard({ db, now: doorNow });
+app.use("/api/campaigns/:slug/begin", doorGuard);
+app.use("/api/campaigns/:slug/turns", doorGuard);
 
 // Surface the real failure reason to the client. Without this, any throw from the 0G Compute
 // router, 0G Storage, or an on-chain tx bubbles to Hono's default handler as an opaque
@@ -786,6 +797,30 @@ function scheduleSafetyExecution(runId: string): void {
     }
   })();
 }
+
+// Door routes: verify a World proof and report the Door's state for a wallet. Rate limited like
+// every other public write, so a flood cannot hammer World's verifier through us.
+app.route(
+  "/api/campaigns",
+  createDoorRoutes(
+    {
+      db,
+      now: doorNow,
+      verifyProof: (request) =>
+        verifyWorldProof(
+          {
+            ...request,
+            appId: process.env.WORLD_APP_ID ?? "",
+            rpId: process.env.WORLD_RP_ID ?? "",
+            action: process.env.WORLD_ACTION ?? "hanami-door",
+          },
+          fetch,
+          (line) => console.warn(line),
+        ),
+    },
+    rateLimit({ key: "door", limit: 10, windowMs: 60_000 }),
+  ),
+);
 
 app.route("/api", createSafetyRoutes({
   repository: safetyRepository,
