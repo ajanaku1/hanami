@@ -67,16 +67,16 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: approve → one ticket with configured expiry and `DecisionRecordedV2`; TicketGate accepts; revoke → refuses; V1 campaign loads unchanged.
 
-- [ ] T025 [P] [US2] Write failing tests `backend/test/tickets-decide.test.ts`: on decision for a V2 campaign the server calls V2 `recordDecision` with the stored nullifier, persists `ticket_id` from the event, returns a `Receipt` with `ticket` on approval and `null` on rejection; ticket-issue failure after chain success surfaces as recoverable (edge case) with a retry endpoint
-- [ ] T026 [US2] Extend the decision branch in `backend/src/server.ts` (`/turns`) and `backend/src/tickets/chain-v2.ts` until T025 passes; add `POST /api/campaigns/:slug/tickets/retry` (owner-authorized) for the failure case
-- [ ] T027 [P] [US2] Write failing tests `backend/test/roster.test.ts` for `backend/src/tickets/roster.ts` (rows from db + chain status live/expired/revoked, `viaAgent`, brief summary) and routes `GET /roster`, `POST /tickets/:id/revoke` (prepared tx, owner-only)
-- [ ] T028 [US2] Implement `backend/src/tickets/roster.ts` and the two routes until T027 passes
-- [ ] T029 [P] [US2] Write failing Vitest `frontend/test/roster.test.tsx` for `RosterTable` (columns, status badges, "via agent" mark) and `RevokeButton` (idle/confirming/pending/success/failure-with-retry, network named)
-- [ ] T030 [US2] Implement `frontend/src/components/roster/{RosterTable,RevokeButton}.tsx` and the Roster tab in `frontend/src/app/c/[slug]/admin/page.tsx` until T029 passes; label Export "for mints on chains other than 0G"
-- [ ] T031 [P] [US2] Write failing Vitest `frontend/test/receipt.test.tsx` for `Receipt` (decision, attestation, nullifier, sources read, ticket block with expiry and "soulbound · revocable by the owner", rejection without ticket)
-- [ ] T032 [US2] Implement `frontend/src/components/door/Receipt.tsx` and render it at decision in `frontend/src/app/c/[slug]/page.tsx` until T031 passes
-- [ ] T033 [US2] Add V1 regression test in `backend/test/tickets-decide.test.ts` (campaign with `contract_version = 1` follows the old path and returns the old payload plus `ticket: null`)
-- [ ] T034 [US2] Update `verify.sh` phases `contracts` and `tickets`
+- [x] T025 [P] [US2] Write failing tests `backend/test/tickets-decide.test.ts`: on decision for a V2 campaign the server calls V2 `recordDecision` with the stored nullifier, persists `ticket_id` from the event, returns a `Receipt` with `ticket` on approval and `null` on rejection; ticket-issue failure after chain success surfaces as recoverable (edge case) with a retry endpoint
+- [x] T026 [US2] Extend the decision branch in `backend/src/server.ts` (`/turns`) and `backend/src/tickets/chain-v2.ts` until T025 passes; add `POST /api/campaigns/:slug/tickets/retry` (owner-authorized) for the failure case
+- [x] T027 [P] [US2] Write failing tests `backend/test/roster.test.ts` for `backend/src/tickets/roster.ts` (rows from db + chain status live/expired/revoked, `viaAgent`, brief summary) and routes `GET /roster`, `POST /tickets/:id/revoke` (prepared tx, owner-only)
+- [x] T028 [US2] Implement `backend/src/tickets/roster.ts` and the two routes until T027 passes
+- [x] T029 [P] [US2] Write failing Vitest `frontend/test/roster.test.tsx` for `RosterTable` (columns, status badges, "via agent" mark) and `RevokeButton` (idle/confirming/pending/success/failure-with-retry, network named)
+- [x] T030 [US2] Implement `frontend/src/components/roster/{RosterTable,RevokeButton}.tsx` and the Roster tab in `frontend/src/app/c/[slug]/admin/page.tsx` until T029 passes; label Export "for mints on chains other than 0G"
+- [x] T031 [P] [US2] Write failing Vitest `frontend/test/receipt.test.tsx` for `Receipt` (decision, attestation, nullifier, sources read, ticket block with expiry and "soulbound · revocable by the owner", rejection without ticket)
+- [x] T032 [US2] Implement `frontend/src/components/door/Receipt.tsx` and render it at decision in `frontend/src/app/c/[slug]/page.tsx` until T031 passes
+- [x] T033 [US2] Add V1 regression test in `backend/test/tickets-decide.test.ts` (campaign with `contract_version = 1` follows the old path and returns the old payload plus `ticket: null`)
+- [x] T034 [US2] Update `verify.sh` phases `contracts` and `tickets`
 
 **Checkpoint**: tickets mint, revoke, and gate on a local fork; V1 unchanged
 

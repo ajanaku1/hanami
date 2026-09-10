@@ -176,6 +176,9 @@ describe("V2 chain client", () => {
     assert.equal(prepared.functionName, "revokeTicket");
     assert.deepEqual(prepared.args, ["7"]);
     assert.ok(prepared.abi.some((entry) => "name" in entry && entry.name === "revokeTicket"));
+    // The owner's wallet needs calldata, not an argument list.
+    assert.match(prepared.data, /^0x[0-9a-f]+$/);
+    assert.equal(prepared.data.endsWith("7"), true, "the ticket id is encoded into the call");
   });
 });
 

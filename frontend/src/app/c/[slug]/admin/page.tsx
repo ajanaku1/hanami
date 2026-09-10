@@ -7,6 +7,8 @@ import { api, isAuthError, type AdminAuth, type AdminPayload, type Campaign } fr
 import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
+import { RosterTable } from "@/components/roster/RosterTable";
+import { useRoster } from "@/components/roster/useRoster";
 import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ShareBar } from "@/components/ShareBar";
 import { ConnectButton } from "@/components/ConnectButton";
@@ -29,6 +31,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const [auth, setAuth] = useState<AdminAuth | null>(null);
   const [verifyWallet, setVerifyWallet] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const roster = useRoster(slug, auth);
 
   const isPrivate = meta?.visibility === "private";
   const isOwner = Boolean(isConnected && address && meta && address.toLowerCase() === meta.owner_address.toLowerCase());
@@ -231,8 +234,25 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
 
           <hr className="my-16 border-[var(--hanami-rule)]" />
 
+          <h2 className="font-serif text-[24px] mb-2">Tickets</h2>
+          <p className="text-[var(--hanami-ink-soft)] text-sm mb-5 max-w-[58ch]">
+            Every approval issued a soulbound ticket on 0G. Status is read from the chain, so an
+            expiry or a revocation shows here as soon as it happens. Revoking is one confirmed
+            action from your wallet and cannot be undone.
+          </p>
+          {roster.error ? (
+            <div role="alert" className="ui-notice" data-tone="error">{roster.error}</div>
+          ) : (
+            <RosterTable rows={roster.rows} onRevoke={roster.revoke} revoking={roster.revoking} />
+          )}
+
+          <hr className="my-16 border-[var(--hanami-rule)]" />
+
           <h2 className="font-serif text-[24px] mb-2">{admin.exportButton}</h2>
-          <p className="text-[var(--hanami-ink-soft)] text-sm mb-5 max-w-[58ch]">{admin.exportedBody}</p>
+          <p className="text-[var(--hanami-ink-soft)] text-sm mb-5 max-w-[58ch]">
+            {admin.exportedBody} Use this for mints on chains other than 0G; on 0G the ticket above
+            is the credential.
+          </p>
           <MerkleExport
             slug={campaign.slug}
             ownerAddress={campaign.owner_address}

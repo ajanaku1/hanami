@@ -157,7 +157,11 @@ export type TurnResult = {
   decision: "approve" | "reject" | null;
   decisionTx?: string;
   attestationHash?: string;
+  attestationPath?: "direct" | "router";
   reasoningRoot?: string;
+  transcriptRoot?: string;
+  ticket?: TicketBlock | null;
+  ticketState?: TicketState;
   repScore?: number;
 };
 
@@ -198,6 +202,24 @@ export type VerifyResult =
       kind: "tee-signature";
       signature: { text: string; signature: string; signingAddress: string; provider: string; chatId: string; model: string };
     });
+
+// ---- Tickets --------------------------------------------------------------------------------
+
+export type RosterRow = {
+  wallet: string;
+  ticketId: string;
+  issuedAt: number | null;
+  expiresAt: number;
+  status: "live" | "expired" | "revoked";
+  briefSummary: string;
+  viaAgent: string | null;
+};
+
+export type PreparedTx = { to: string; data: string; chainId: number };
+
+export type TicketBlock = { id: string; expiresAt: number; status: string };
+
+export type TicketState = "issued" | "none" | "pending-retry";
 
 // ---- The Door -------------------------------------------------------------------------------
 // The Door's refusals are states, not failures: 409 "already applied", 410 "closed", 422 "rejected"
@@ -279,6 +301,20 @@ export const api = {
     call<TurnResult>(`/api/campaigns/${slug}/turns`, {
       method: "POST",
       body: JSON.stringify({ walletAddress, message }),
+    }),
+  getRoster: (slug: string, auth: AdminAuth) =>
+    call<RosterRow[]>(
+      `/api/campaigns/${slug}/roster?caller=${auth.caller}&nonce=${auth.nonce}&signature=${auth.sig}`,
+    ),
+  prepareRevoke: (slug: string, ticketId: string, auth: AdminAuth) =>
+    call<PreparedTx>(`/api/campaigns/${slug}/tickets/${ticketId}/revoke`, {
+      method: "POST",
+      body: JSON.stringify({ caller: auth.caller, nonce: auth.nonce, signature: auth.sig }),
+    }),
+  retryTicket: (slug: string, walletAddress: string) =>
+    call<{ ticket: TicketBlock | null; ticketState: TicketState }>(`/api/campaigns/${slug}/tickets/retry`, {
+      method: "POST",
+      body: JSON.stringify({ walletAddress }),
     }),
   getDoorContext: (slug: string) =>
     callIdempotent<{ rpContext: DoorRpContext | null }>(`/api/campaigns/${slug}/door/context`),

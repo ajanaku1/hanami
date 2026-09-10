@@ -1,4 +1,4 @@
-import { parseAbi, parseEventLogs, type Abi, type Address, type Hex } from "viem";
+import { encodeFunctionData, parseAbi, parseEventLogs, type Abi, type Address, type Hex } from "viem";
 
 /// The V2 contracts, beside the V1 pair in og-chain.ts. Everything here takes its clients as an
 /// argument rather than reaching for module-level ones, so the encoding and the event parsing are
@@ -133,12 +133,13 @@ export async function hasLiveTicket(
 export function prepareRevokeTicket(
   campaign: Address,
   ticketId: bigint,
-): { address: Address; abi: Abi; functionName: "revokeTicket"; args: [string] } {
+): { address: Address; abi: Abi; functionName: "revokeTicket"; args: [string]; data: Hex } {
   return {
     address: campaign,
     abi: campaignV2Abi as Abi,
     functionName: "revokeTicket",
     args: [ticketId.toString()],
+    data: encodeFunctionData({ abi: campaignV2Abi, functionName: "revokeTicket", args: [ticketId] }),
   };
 }
 
@@ -155,4 +156,52 @@ export function decisionPathFor(contractVersion: number | null | undefined): Dec
   }
   if (contractVersion === 2) return { version: 2, sendsNullifier: true, mintsTicket: true };
   throw new Error(`unknown contract version ${contractVersion}`);
+}
+
+export type ChainTicketStatus = { live: boolean; revoked: boolean; expiresAt: number };
+
+/// The Ticket contract belongs to the factory that deployed it, so it is read rather than
+/// configured. Cached by the caller: a factory's ticket address never changes.
+export async function readTicketAddress(clients: ChainClients, factory: Address): Promise<Address> {
+  const address = await clients.publicClient.readContract({
+    address: factory,
+    abi: campaignFactoryV2Abi as Abi,
+    functionName: "ticket",
+    args: [],
+  });
+  return address as Address;
+}
+
+export async function readLiveTicketId(
+  clients: ChainClients,
+  ticket: Address,
+  campaign: Address,
+  wallet: Address,
+): Promise<bigint | null> {
+  const id = (await clients.publicClient.readContract({
+    address: ticket,
+    abi: ticketAbi as Abi,
+    functionName: "liveTicketOf",
+    args: [campaign, wallet],
+  })) as bigint;
+  return id === 0n ? null : id;
+}
+
+/// The roster's source of truth. Status is three reads per ticket because live, revoked, and
+/// expired are three different answers and the roster has to tell them apart.
+export async function readTicketStatuses(
+  clients: ChainClients,
+  ticket: Address,
+  ticketIds: string[],
+): Promise<Record<string, ChainTicketStatus>> {
+  const entries = await Promise.all(
+    ticketIds.map(async (id) => {
+      const tokenId = BigInt(id);
+      const read = (functionName: string) =>
+        clients.publicClient.readContract({ address: ticket, abi: ticketAbi as Abi, functionName, args: [tokenId] });
+      const [live, revoked, expiresAt] = await Promise.all([read("isLive"), read("revoked"), read("expiresAt")]);
+      return [id, { live: live === true, revoked: revoked === true, expiresAt: Number(expiresAt) }] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
 }

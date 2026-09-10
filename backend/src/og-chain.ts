@@ -16,8 +16,12 @@ import type { Trace, Attestation } from "./og-compute.js";
 import {
   createCampaignV2,
   decisionPathFor,
+  readLiveTicketId,
+  readTicketAddress,
+  readTicketStatuses,
   recordDecisionV2,
   type ChainClients,
+  type ChainTicketStatus,
 } from "./tickets/chain-v2.js";
 
 export const zeroG = defineChain({
@@ -253,4 +257,21 @@ export async function createCampaignRouted(
     closeAt: schedule.closeAt,
     ticketExpiry: schedule.ticketExpiry,
   });
+}
+
+/// The Ticket contract address, read from the factory once and remembered. A factory's ticket
+/// never changes, so re-reading it on every roster render would be a round trip for nothing.
+let ticketAddress: Address | null = null;
+async function ticketContract(): Promise<Address> {
+  if (!ticketAddress) ticketAddress = await readTicketAddress(v2Clients, CAMPAIGN_FACTORY_V2);
+  return ticketAddress;
+}
+
+export async function liveTicketId(campaign: Address, wallet: Address): Promise<bigint | null> {
+  return readLiveTicketId(v2Clients, await ticketContract(), campaign, wallet);
+}
+
+export async function ticketStatuses(ticketIds: string[]): Promise<Record<string, ChainTicketStatus>> {
+  if (ticketIds.length === 0) return {};
+  return readTicketStatuses(v2Clients, await ticketContract(), ticketIds);
 }

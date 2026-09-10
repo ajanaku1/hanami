@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
 import { DoorPanel } from "@/components/door/DoorPanel";
+import { Receipt } from "@/components/door/Receipt";
 import { useDoor } from "@/components/door/useDoor";
 import { applicant } from "@/copy";
 import { api, warmBackend, type Campaign, type TurnResult } from "@/lib/api";
@@ -244,6 +245,20 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
                 <div className="text-[11px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] mb-2">
                   {applicant.decision.approved.receiptLabel}
                 </div>
+                {/* The receipt states the decision, the ticket it issued, and the three
+                    identifiers anyone can check on 0G. */}
+                <Receipt
+                  model={{
+                    decision: approved ? "approved" : "rejected",
+                    attestationHash: decision.attestationHash ?? "",
+                    attestationPath: decision.attestationPath ?? "router",
+                    nullifier: null,
+                    ticket: decision.ticket ?? null,
+                    ticketState: decision.ticketState ?? "none",
+                    brief: { status: "unavailable", summary: "—", sourcesRead: 0 },
+                    txHash: decision.decisionTx,
+                  }}
+                />
                 <VerifyOn0G slug={slug} wallet={wallet} />
               </div>
             )}

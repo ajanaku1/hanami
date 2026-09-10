@@ -7,7 +7,10 @@ import { db, get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
-import { recordDecision, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { recordDecision, recordDecisionRouted, liveTicketId, ticketStatuses, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { recordApplicantDecision, retryTicket, type DecideDeps } from "./tickets/decide.js";
+import { createRosterRoutes } from "./tickets/roster.js";
+import { prepareRevokeTicket } from "./tickets/chain-v2.js";
 import { buildExport } from "./merkle.js";
 import type { ChatTurn, Attestation } from "./og-compute.js";
 import { privateKeyToAccount } from "viem/accounts";
@@ -74,6 +77,21 @@ app.use("/api/campaigns/:slug/turns", rateLimit({ key: "turns", limit: 30, windo
 // with 403, a closed campaign with 410. Agents pass the same guard: their AgentBook proof is a row
 // in the same proofs table.
 const doorNow = () => Math.floor(Date.now() / 1000);
+
+// The chain side of a decision, injected so the decision logic itself stays testable.
+const decideDeps: DecideDeps = {
+  recordRouted: (call) =>
+    recordDecisionRouted(
+      call.campaign,
+      call.contractVersion,
+      call.applicant,
+      call.approve,
+      call.reasoning,
+      call.attestation,
+      call.nullifierHash,
+    ),
+  readTicketId: (campaign, wallet) => liveTicketId(campaign, wallet),
+};
 const doorGuard = createDoorGuard({ db, now: doorNow });
 app.use("/api/campaigns/:slug/begin", doorGuard);
 app.use("/api/campaigns/:slug/turns", doorGuard);
@@ -367,7 +385,7 @@ const turnBody = z.object({
   message: z.string().min(1).max(2000),
 });
 
-type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null; bouncer_token_id: number };
+type CampaignRow = { slug: string; campaign_address: string; persona_uri: string; lorebook_uri: string | null; bouncer_token_id: number; contract_version: number | null };
 type ApplicantRow = { id: number; decision: string | null };
 
 // Race-safe applicant upsert. Two concurrent requests for the same wallet (double-mount, page
@@ -488,22 +506,25 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     turns: fullTurns,
   }));
 
-  const recorded = await recordDecision(
-    campaign.campaign_address as `0x${string}`,
-    walletAddress as `0x${string}`,
-    turn.decision.kind === "approve",
-    turn.decision.reasoning || turn.reply,
-    turn.attestation,
-  );
+  // The decision goes to whichever contract this campaign was created against; a V2 campaign also
+  // carries the Door's nullifier and mints the ticket. recordApplicantDecision writes the decision
+  // columns, so only the artifacts it does not know about are updated afterwards.
+  const receipt = await recordApplicantDecision(db, decideDeps, {
+    slug,
+    applicantId: applicant.id,
+    wallet: walletAddress,
+    approve: turn.decision.kind === "approve",
+    reasoning: turn.decision.reasoning || turn.reply,
+    attestation: turn.attestation,
+    attestationPath: turn.attestation.kind === "tee-signature" ? "direct" : "router",
+  });
+  const recorded = { txHash: receipt.txHash, attestationHash: receipt.attestationHash };
 
-  await run(`UPDATE applicants SET decision = ?, decision_tx = ?, reasoning_uri = ?, transcript_uri = ?, attestation_hash = ?, attestation_json = ?, finished_at = ?
+  await run(`UPDATE applicants SET reasoning_uri = ?, transcript_uri = ?, attestation_json = ?, finished_at = ?
              WHERE id = ?`,
     [
-      turn.decision.kind === "approve" ? "approved" : "rejected",
-      recorded.txHash,
       `0g://${reasoningUp.rootHash}`,
       `0g://${transcriptUp.rootHash}`,
-      recorded.attestationHash,
       JSON.stringify(turn.attestation),
       Math.floor(Date.now() / 1000),
       applicant.id,
@@ -528,10 +549,28 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     decision: turn.decision.kind,
     decisionTx: recorded.txHash,
     attestationHash: recorded.attestationHash,
+    attestationPath: receipt.attestationPath,
     reasoningRoot: reasoningUp.rootHash,
     transcriptRoot: transcriptUp.rootHash,
+    ticket: receipt.ticket,
+    ticketState: receipt.ticketState,
     repScore,
   });
+});
+
+/// Recovers a ticket the chain minted but we failed to keep. The decision is already on chain, so
+/// this only reads the ticket back and records it; it never mints and never decides.
+app.post("/api/campaigns/:slug/tickets/retry", async (c) => {
+  const slug = c.req.param("slug");
+  const body = await c.req.json().catch(() => null) as { walletAddress?: string } | null;
+  const wallet = body?.walletAddress;
+  if (!wallet || !/^0x[a-fA-F0-9]{40}$/.test(wallet)) return c.json({ error: "invalid request" }, 400);
+
+  try {
+    return c.json(await retryTicket(db, decideDeps, slug, wallet));
+  } catch (err) {
+    return c.json({ error: (err as Error).message }, 409);
+  }
 });
 
 app.get("/api/campaigns/:slug/export", async (c) => {
@@ -798,6 +837,21 @@ function scheduleSafetyExecution(runId: string): void {
     }
   })();
 }
+
+// Owner routes for the tickets a campaign has issued. Revocation is prepared, never sent: the
+// backend holds the bouncer's operator key, and revoking is the owner's authority on chain.
+app.route(
+  "/api/campaigns",
+  createRosterRoutes({
+    db,
+    now: doorNow,
+    readTickets: (ids) => ticketStatuses(ids),
+    prepareRevoke: (campaign, ticketId) => {
+      const prepared = prepareRevokeTicket(campaign, ticketId);
+      return { to: prepared.address, data: prepared.data, chainId: 16661 };
+    },
+  }),
+);
 
 // Door routes: verify a World proof and report the Door's state for a wallet. Rate limited like
 // every other public write, so a flood cannot hammer World's verifier through us.
