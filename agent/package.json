@@ -1,0 +1,22 @@
+{
+  "name": "hanami-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Applicant CLI that walks the Hanami campaign API on a human's behalf",
+  "scripts": {
+    "agent": "tsx src/cli.ts",
+    "build": "tsc",
+    "test": "node --disable-warning=DEP0205 --import tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@worldcoin/agentkit": "^0.2.1",
+    "openai": "^4.68.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
