@@ -20,6 +20,7 @@ import { SafetyRunner, type SafetyInference } from "./safety/runner.js";
 import { createSafetyRoutes } from "./safety/routes.js";
 import { createDoorGuard, createDoorRoutes } from "./door/routes.js";
 import { verifyWorldProof } from "./door/world-verify.js";
+import { signRequest } from "@worldcoin/idkit-server";
 import { hashBouncerContent } from "./safety/content-hash.js";
 import {
   CertificationError,
@@ -806,6 +807,16 @@ app.route(
     {
       db,
       now: doorNow,
+      rpId: process.env.WORLD_RP_ID ?? "",
+      // IDKit will not open without a request context this RP has signed. Without the key the Door
+      // reports itself unavailable rather than handing the browser something World will refuse.
+      signRequest: process.env.WORLD_RP_SIGNING_KEY
+        ? () =>
+            signRequest({
+              signingKeyHex: process.env.WORLD_RP_SIGNING_KEY as string,
+              action: process.env.WORLD_ACTION ?? "hanami-door",
+            })
+        : null,
       verifyProof: (request) =>
         verifyWorldProof(
           {

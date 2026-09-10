@@ -32,6 +32,7 @@ const IDKIT = {
 
 type Options = {
   outcome?: VerifyOutcome;
+  signRequest?: null;
   requiredCredential?: string;
   closeAt?: number | null;
   wlSizeCap?: number;
@@ -62,6 +63,16 @@ async function setup(options: Options = {}) {
         seen.push(request);
         return options.outcome ?? verified;
       },
+      rpId: "rp_test",
+      signRequest:
+        options.signRequest === null
+          ? null
+          : () => ({
+              sig: "0xsignature",
+              nonce: "0xnonce",
+              createdAt: 1_757_000_000,
+              expiresAt: 1_757_000_600,
+            }),
     }),
   );
 
@@ -270,5 +281,38 @@ describe("the Door guard on /begin and /turns", () => {
       body: JSON.stringify({ walletAddress: ALICE }),
     });
     assert.equal(response.status, 403);
+  });
+});
+
+describe("GET /door/context", () => {
+  test("returns a signed request context the browser can carry to World", async () => {
+    const { app } = await setup();
+
+    const response = await app.request("/api/campaigns/mei-chan/door/context");
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      rpContext: {
+        rp_id: "rp_test",
+        nonce: "0xnonce",
+        created_at: 1_757_000_000,
+        expires_at: 1_757_000_600,
+        signature: "0xsignature",
+      },
+    });
+  });
+
+  test("reports no context rather than a broken one when the RP key is absent", async () => {
+    const { app } = await setup({ signRequest: null });
+
+    const response = await app.request("/api/campaigns/mei-chan/door/context");
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { rpContext: null, error: "door unavailable" });
+  });
+
+  test("never returns the signing key", async () => {
+    const { app } = await setup();
+    const body = await (await app.request("/api/campaigns/mei-chan/door/context")).text();
+    assert.equal(body.includes("signing"), false);
+    assert.equal(body.includes("SIGNING_KEY"), false);
   });
 });

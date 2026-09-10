@@ -8,10 +8,18 @@ import type { Credential, IdkitResult, VerifyOutcome } from "./world-verify.js";
 /// interview. Dependencies are injected so the whole thing is testable without World, a chain, or
 /// the production database.
 
+/// What World returns from signRequest: the RP's signature over a fresh nonce and its validity
+/// window. The signing key itself never leaves the server, and never appears in a response.
+export type RpSignature = { sig: string; nonce: string; createdAt: number; expiresAt: number };
+
 export type DoorDeps = {
   db: Client;
   now: () => number;
   verifyProof: (request: { result: IdkitResult; signal: string }) => Promise<VerifyOutcome>;
+  rpId: string;
+  /// Null when no RP signing key is configured. The Door then says it is unavailable rather than
+  /// handing the browser a request context World will refuse.
+  signRequest: (() => RpSignature) | null;
 };
 
 export type GuardDeps = { db: Client; now: () => number };
@@ -117,6 +125,23 @@ export function createDoorRoutes(deps: DoorDeps, rateLimit?: MiddlewareHandler):
       return c.json({ state: "used", requiredCredential: required, method: null }, 409);
     }
     return c.json({ state: "verified", requiredCredential: required, method: recorded.proof.method }, 200);
+  });
+
+  /// IDKit will not open without a request context the RP has signed. Minting one is a server job
+  /// because it needs the RP signing key, and it is per request because the nonce is single-use.
+  app.get("/:slug/door/context", async (c) => {
+    if (!deps.signRequest) return c.json({ rpContext: null, error: "door unavailable" }, 503);
+
+    const signed = deps.signRequest();
+    return c.json({
+      rpContext: {
+        rp_id: deps.rpId,
+        nonce: signed.nonce,
+        created_at: signed.createdAt,
+        expires_at: signed.expiresAt,
+        signature: signed.sig,
+      },
+    });
   });
 
   app.get("/:slug/door/status", async (c) => {
