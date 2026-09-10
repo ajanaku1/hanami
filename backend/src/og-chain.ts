@@ -13,6 +13,12 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Trace, Attestation } from "./og-compute.js";
+import {
+  createCampaignV2,
+  decisionPathFor,
+  recordDecisionV2,
+  type ChainClients,
+} from "./tickets/chain-v2.js";
 
 export const zeroG = defineChain({
   id: 16661,
@@ -29,6 +35,17 @@ export const publicClient = createPublicClient({ chain: zeroG, transport: http()
 
 export const BOUNCER_REGISTRY = process.env.BOUNCER_REGISTRY_ADDRESS as Address;
 export const CAMPAIGN_FACTORY = process.env.CAMPAIGN_FACTORY_ADDRESS as Address;
+export const CAMPAIGN_FACTORY_V2 = process.env.CAMPAIGN_FACTORY_V2 as Address;
+
+/// The live viem clients behind the narrow surface chain-v2.ts asks for, so the V2 modules stay
+/// injectable and testable while production still talks to one wallet and one RPC.
+const v2Clients: ChainClients = {
+  wallet: { writeContract: (args) => wallet.writeContract(args as never) },
+  publicClient: {
+    waitForTransactionReceipt: (args) => publicClient.waitForTransactionReceipt(args),
+    readContract: (args) => publicClient.readContract(args as never),
+  },
+};
 
 const registryAbi = parseAbi([
   "function mintBouncer(string personaURI, string lorebookURI, string imageURI, bytes32 oracleConditions) returns (uint256)",
@@ -161,6 +178,10 @@ export async function finalizeMerkleRoot(campaign: Address, root: Hex): Promise<
 
 export type RecordedDecision = { txHash: Hex; attestationHash: Hex; reasoningHash: Hex };
 
+function reasoningHashOf(reasoning: string): Hex {
+  return keccak256(`0x${Buffer.from(reasoning, "utf8").toString("hex")}` as Hex);
+}
+
 export async function recordDecision(
   campaign: Address,
   applicant: Address,
@@ -168,7 +189,7 @@ export async function recordDecision(
   reasoning: string,
   attestation: Attestation,
 ): Promise<RecordedDecision> {
-  const reasoningHash = keccak256(`0x${Buffer.from(reasoning, "utf8").toString("hex")}` as Hex);
+  const reasoningHash = reasoningHashOf(reasoning);
   const attestationHash = attestationHashFor(attestation);
   const txHash = await wallet.writeContract({
     address: campaign,
@@ -178,4 +199,58 @@ export async function recordDecision(
   });
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   return { txHash, attestationHash, reasoningHash };
+}
+
+/// Sends a decision to whichever contract the campaign was created against. V1 campaigns keep the
+/// exact call they have always made; only V2 campaigns carry the proof-of-human and mint a ticket.
+export type RoutedDecision = RecordedDecision & { ticketId: bigint | null };
+
+export async function recordDecisionRouted(
+  campaign: Address,
+  contractVersion: number | null | undefined,
+  applicant: Address,
+  approve: boolean,
+  reasoning: string,
+  attestation: Attestation,
+  nullifierHash: Hex | null,
+): Promise<RoutedDecision> {
+  const path = decisionPathFor(contractVersion);
+  if (path.version === 1) {
+    const recorded = await recordDecision(campaign, applicant, approve, reasoning, attestation);
+    return { ...recorded, ticketId: null };
+  }
+
+  if (!nullifierHash) throw new Error("a V2 decision needs the Door proof's nullifier");
+  const reasoningHash = reasoningHashOf(reasoning);
+  const attestationHash = attestationHashFor(attestation);
+  const { txHash, ticketId } = await recordDecisionV2(v2Clients, {
+    campaign,
+    applicant,
+    approve,
+    reasoningHash,
+    attestationHash,
+    nullifierHash,
+  });
+  return { txHash, attestationHash, reasoningHash, ticketId };
+}
+
+/// Creates a campaign on the factory matching the requested contract version. A V2 campaign needs
+/// a schedule; a V1 campaign has none and takes the original two-argument call.
+export async function createCampaignRouted(
+  contractVersion: number | null | undefined,
+  bouncerTokenId: bigint,
+  wlSizeCap: bigint,
+  schedule: { closeAt: bigint; ticketExpiry: bigint } | null,
+): Promise<{ txHash: Hex; campaign: Address }> {
+  const path = decisionPathFor(contractVersion);
+  if (path.version === 1) return createCampaign(bouncerTokenId, wlSizeCap);
+
+  if (!schedule) throw new Error("a V2 campaign needs a closeAt and a ticket expiry");
+  return createCampaignV2(v2Clients, {
+    factory: CAMPAIGN_FACTORY_V2,
+    bouncerTokenId,
+    wlSizeCap,
+    closeAt: schedule.closeAt,
+    ticketExpiry: schedule.ticketExpiry,
+  });
 }
