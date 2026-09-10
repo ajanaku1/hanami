@@ -34,6 +34,20 @@ async function migrateCampaigns(client: Client): Promise<void> {
       "UPDATE campaigns SET publication_policy = 'legacy-public' WHERE visibility = 'public'",
     );
   }
+  // Feature 002. The defaults are deliberately the V1 answer: a campaign that existed before the
+  // Door keeps its Orb-grade requirement, no schedule, and the V1 contract path.
+  if (!has("required_credential")) {
+    await client.execute("ALTER TABLE campaigns ADD COLUMN required_credential TEXT NOT NULL DEFAULT 'orb'");
+  }
+  if (!has("close_at")) {
+    await client.execute("ALTER TABLE campaigns ADD COLUMN close_at INTEGER");
+  }
+  if (!has("ticket_expiry")) {
+    await client.execute("ALTER TABLE campaigns ADD COLUMN ticket_expiry INTEGER");
+  }
+  if (!has("contract_version")) {
+    await client.execute("ALTER TABLE campaigns ADD COLUMN contract_version INTEGER NOT NULL DEFAULT 1");
+  }
 }
 
 async function migrateApplicants(client: Client): Promise<void> {
@@ -44,6 +58,20 @@ async function migrateApplicants(client: Client): Promise<void> {
   }
   if (!hasApp("attestation_json")) {
     await client.execute("ALTER TABLE applicants ADD COLUMN attestation_json TEXT");
+  }
+  // Feature 002. All nullable: in-flight and historical applicants carry none of them.
+  for (const [column, type] of [
+    ["nullifier", "TEXT"],
+    ["proof_method", "TEXT"],
+    ["agent_id", "TEXT"],
+    ["brief_json", "TEXT"],
+    ["brief_status", "TEXT"],
+    ["ticket_id", "INTEGER"],
+    ["attestation_path", "TEXT"],
+  ] as const) {
+    if (!hasApp(column)) {
+      await client.execute(`ALTER TABLE applicants ADD COLUMN ${column} ${type}`);
+    }
   }
 }
 

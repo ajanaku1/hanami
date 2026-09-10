@@ -21,7 +21,12 @@ CREATE TABLE IF NOT EXISTS campaigns (
   merkle_root       TEXT,                 -- 0x... hex
   visibility        TEXT NOT NULL DEFAULT 'private', -- 'public' | 'private'
   rep_score         INTEGER NOT NULL DEFAULT 0,      -- mirror of the bouncer iNFT's on-chain repScore (canonical = chain)
-  publication_policy TEXT NOT NULL DEFAULT 'certification-required'
+  publication_policy TEXT NOT NULL DEFAULT 'certification-required',
+  -- Feature 002. Existing campaigns keep contract_version = 1 and stay on the V1 Campaign path.
+  required_credential TEXT NOT NULL DEFAULT 'orb',  -- 'selfie' | 'orb' | 'device'
+  close_at          INTEGER,                        -- unix seconds; required for V2 campaigns
+  ticket_expiry     INTEGER,                        -- unix seconds; defaults to close_at
+  contract_version  INTEGER NOT NULL DEFAULT 1      -- 1 = Campaign, 2 = CampaignV2
 );
 
 CREATE INDEX IF NOT EXISTS idx_campaigns_owner ON campaigns(owner_address);
@@ -38,11 +43,36 @@ CREATE TABLE IF NOT EXISTS applicants (
   transcript_uri  TEXT,                   -- 0g://rootHash of the full conversation transcript (pinned at decision)
   attestation_hash TEXT,                  -- bytes32 hex, mirrors on-chain value
   attestation_json TEXT,                  -- serialized Attestation (router trace | tee-signature bundle) for the verify proof
+  nullifier       TEXT,                   -- copied from proofs at begin; the one-human identifier
+  proof_method    TEXT,                   -- 'selfie' | 'orb' | 'device' | 'agentkit'
+  agent_id        TEXT,                   -- AgentBook agent address when proof_method = 'agentkit'
+  brief_json      TEXT,                   -- serialized LedgerBrief (evidence, never a verdict)
+  brief_status    TEXT,                   -- 'ready' | 'empty' | 'unavailable'
+  ticket_id       INTEGER,                -- from DecisionRecordedV2; NULL on rejection and on V1
+  attestation_path TEXT,                  -- 'direct' | 'router'
   UNIQUE(campaign_slug, wallet_address)   -- enforces one-attempt-per-wallet at API layer
 );
 
 CREATE INDEX IF NOT EXISTS idx_applicants_campaign ON applicants(campaign_slug);
 CREATE INDEX IF NOT EXISTS idx_applicants_decision ON applicants(campaign_slug, decision);
+
+-- The Door. One row per verified proof. No proof material is stored: only the nullifier, which is
+-- the anonymous per-action identifier World returns, plus how it was obtained.
+-- Both UNIQUE constraints are the one-person-one-attempt mechanic, enforced by the database rather
+-- than the application so concurrent verifications resolve to exactly one winner.
+CREATE TABLE IF NOT EXISTS proofs (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_slug   TEXT NOT NULL REFERENCES campaigns(slug) ON DELETE CASCADE,
+  wallet_address  TEXT NOT NULL,           -- lowercase; the IDKit signal binds the proof to it
+  nullifier       TEXT NOT NULL,           -- World nullifier (hex) or AgentBook human id
+  method          TEXT NOT NULL,           -- 'selfie' | 'orb' | 'device' | 'agentkit'
+  agent_id        TEXT,                    -- AgentBook agent address when method = 'agentkit'
+  verified_at     INTEGER NOT NULL,        -- unix seconds
+  UNIQUE(campaign_slug, nullifier),        -- one human, one attempt
+  UNIQUE(campaign_slug, wallet_address)    -- one proof per wallet
+);
+
+CREATE INDEX IF NOT EXISTS idx_proofs_campaign ON proofs(campaign_slug);
 
 CREATE TABLE IF NOT EXISTS turns (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
