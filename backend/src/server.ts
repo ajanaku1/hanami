@@ -10,6 +10,7 @@ import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
 import { recordDecision, recordDecisionRouted, liveTicketId, ticketStatuses, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
 import { recordApplicantDecision, retryTicket, type DecideDeps } from "./tickets/decide.js";
 import { createRosterRoutes } from "./tickets/roster.js";
+import { buildVerifyPayload } from "./tickets/verify.js";
 import { prepareRevokeTicket } from "./tickets/chain-v2.js";
 import { buildExport } from "./merkle.js";
 import type { ChatTurn, Attestation } from "./og-compute.js";
@@ -723,46 +724,15 @@ app.get("/api/campaigns/:slug/admin", async (c) => {
 //   - "router": the decision came from the Router. Returns the x_0g_trace so a verifier recomputes
 //     keccak256(abi.encode(keccak256(requestId), provider, teeVerified)) and matches it on chain.
 // All values are already public on-chain — this just packages them.
+// What "Verify on 0G" checks: the attestation the browser re-derives, plus the nullifier, the
+// ticket, and which path attested the decision. The payload is built in tickets/verify.ts so it is
+// testable without a chain or a running server.
 app.get("/api/campaigns/:slug/verify/:wallet", async (c) => {
-  const slug = c.req.param("slug");
   const wallet = c.req.param("wallet");
   if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) return c.json({ error: "invalid wallet" }, 400);
 
-  const applicant = await get<{ id: number; decision: string | null; decision_tx: string | null; attestation_hash: string | null; attestation_json: string | null }>(
-    "SELECT id, decision, decision_tx, attestation_hash, attestation_json FROM applicants WHERE campaign_slug = ? AND wallet_address = ?",
-    [slug, wallet.toLowerCase()],
-  );
-  if (!applicant) return c.json({ error: "no application found" }, 404);
-  if (!applicant.decision || !applicant.attestation_hash) return c.json({ error: "no decision yet" }, 409);
-
-  const base = { decision: applicant.decision, decisionTx: applicant.decision_tx, attestationHash: applicant.attestation_hash };
-  const att = applicant.attestation_json ? (JSON.parse(applicant.attestation_json) as Attestation) : null;
-
-  if (att?.kind === "tee-signature") {
-    return c.json({
-      ...base,
-      kind: "tee-signature",
-      signature: { text: att.text, signature: att.signature, signingAddress: att.signingAddress, provider: att.provider, chatId: att.chatId, model: att.model },
-    });
-  }
-
-  // Router path (legacy rows have no attestation_json): reconstruct the trace from the final attested
-  // bouncer turn — the highest-indexed one carrying a router request id.
-  const decisionTurn = await get<{ router_request_id: string; provider: string; tee_verified: number }>(
-    `SELECT router_request_id, provider, tee_verified FROM turns
-     WHERE applicant_id = ? AND role = 'bouncer' AND router_request_id IS NOT NULL
-     ORDER BY turn_index DESC LIMIT 1`,
-    [applicant.id],
-  );
-  if (att?.kind === "router") {
-    const { request_id: requestId, provider, tee_verified: teeVerified } = att.trace;
-    return c.json({ ...base, kind: "router", trace: { requestId, provider, teeVerified } });
-  }
-  if (decisionTurn) {
-    const trace = { requestId: decisionTurn.router_request_id, provider: decisionTurn.provider, teeVerified: decisionTurn.tee_verified === 1 };
-    return c.json({ ...base, kind: "router", trace });
-  }
-  return c.json({ error: "no attested turn on record" }, 404);
+  const { status, body } = await buildVerifyPayload(db, c.req.param("slug"), wallet);
+  return c.json(body, status);
 });
 
 // Admin-only: backfill the image cache. Used by the seed-bouncer script when it ran

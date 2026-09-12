@@ -209,7 +209,7 @@ describe("readLedger", () => {
     let lateSettled = false;
     const fetchImpl: GraphFetch = async (url) => {
       if (url.endsWith(slow.subgraphId)) {
-        await new Promise((resolve) => setTimeout(resolve, 60));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         lateSettled = true;
         return {
           ok: true,
@@ -224,11 +224,13 @@ describe("readLedger", () => {
     const brief = await readLedger({ wallet: WALLET, apiKey: KEY, fetchImpl, budgetMs: 20, readAt: T0 });
     const elapsed = Date.now() - started;
 
-    assert.ok(elapsed < 60, `readLedger waited ${elapsed}ms, past its budget`);
+    // A wide margin on purpose: the point is that the budget cut the read off, not how promptly a
+    // loaded test machine got back to us.
+    assert.ok(elapsed < 400, `readLedger waited ${elapsed}ms, past its budget`);
     assert.equal(brief.sourcesRead.find((s) => s.name === slow.name)?.ok, false);
     assert.equal(brief.sourcesRead.find((s) => s.name === slow.name)?.count, 0);
 
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 600));
     assert.ok(lateSettled, "the slow source did settle; the brief simply did not wait for it");
     assert.equal(brief.status, "empty");
   });
