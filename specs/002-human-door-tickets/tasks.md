@@ -146,13 +146,13 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: `apply` against a live campaign → receipt + ticket; second run → exit 2.
 
-- [ ] T059 [P] [US6] Write failing tests `backend/test/door-agentkit.test.ts` for `backend/src/door/agentkit.ts` (hooks in `free` mode, `agentkit` header → AgentBook human id stored as nullifier with `method='agentkit'` and `agent_id`; unregistered → 403 with registration message; AgentBook unreachable → 503 retryable, never "unregistered" (CHK026))
-- [ ] T060 [US6] Implement `backend/src/door/agentkit.ts` (`createAgentkitHooks`, `createAgentBookVerifier`, `InMemoryAgentKitStorage`, `@x402/hono` wiring) and mount on `/begin` and `/turns` until T059 passes
-- [ ] T061 [P] [US6] Write failing tests `agent/test/apply.test.ts` for `agent/src/apply.ts` (begin via injected agentkit fetch, turn loop until decision or `--max-turns`, exit codes 0/2/3, `--json` receipt shape per `contracts/agent-cli.md`)
-- [ ] T062 [US6] Implement `agent/src/apply.ts`, `agent/src/applicant-model.ts` (OpenAI-compatible client to the 0G Router with the fixed sincere-applicant persona), `agent/src/register.ts` (wrap `npx @worldcoin/agentkit-cli register/status`), `agent/src/cli.ts` until T061 passes
-- [ ] T063 [US6] Write `agent/README.md` (register, env, apply, expected output, exit codes) so a judge can run it
-- [ ] T064 [US6] Roster/receipt show `viaAgent` (append tests to `frontend/test/roster.test.tsx`)
-- [ ] T065 [US6] Update `verify.sh` phase `agent` (agent tests pass; README has the three commands)
+- [x] T059 [P] [US6] Write failing tests `backend/test/door-agentkit.test.ts` for `backend/src/door/agentkit.ts` (hooks in `free` mode, `agentkit` header → AgentBook human id stored as nullifier with `method='agentkit'` and `agent_id`; unregistered → 403 with registration message; AgentBook unreachable → 503 retryable, never "unregistered" (CHK026))
+- [x] T060 [US6] Implement `backend/src/door/agentkit.ts` (`createAgentkitHooks`, `createAgentBookVerifier`, `InMemoryAgentKitStorage`, `@x402/hono` wiring) and mount on `/begin` and `/turns` until T059 passes
+- [x] T061 [P] [US6] Write failing tests `agent/test/apply.test.ts` for `agent/src/apply.ts` (begin via injected agentkit fetch, turn loop until decision or `--max-turns`, exit codes 0/2/3, `--json` receipt shape per `contracts/agent-cli.md`)
+- [x] T062 [US6] Implement `agent/src/apply.ts`, `agent/src/applicant-model.ts` (OpenAI-compatible client to the 0G Router with the fixed sincere-applicant persona), `agent/src/register.ts` (wrap `npx @worldcoin/agentkit-cli register/status`), `agent/src/cli.ts` until T061 passes
+- [x] T063 [US6] Write `agent/README.md` (register, env, apply, expected output, exit codes) so a judge can run it
+- [x] T064 [US6] Roster/receipt show `viaAgent` (append tests to `frontend/test/roster.test.tsx`)
+- [x] T065 [US6] Update `verify.sh` phase `agent` (agent tests pass; README has the three commands)
 
 ---
 

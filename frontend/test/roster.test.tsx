@@ -60,6 +60,15 @@ describe("RosterTable", () => {
     expect(screen.getAllByText(/via agent/i)).toHaveLength(1);
   });
 
+  it("names which agent applied, not just that one did", () => {
+    render(<RosterTable rows={rows} onRevoke={vi.fn()} />);
+
+    // FR-016 asks for the agent's registry identifier, so an owner can tell two agents apart.
+    const mark = screen.getByText(/via agent/i);
+    expect(mark.textContent).toMatch(/0x0000…00a9/);
+    expect(mark.getAttribute("title")).toBe("0x00000000000000000000000000000000000000a9");
+  });
+
   it("offers revoke only where there is something live to revoke", () => {
     render(<RosterTable rows={rows} onRevoke={vi.fn()} />);
     expect(screen.getAllByRole("button", { name: /revoke/i })).toHaveLength(1);

@@ -55,9 +55,14 @@ export function RosterTable({
           <tr key={row.ticketId}>
             <td className="font-mono">
               {shortWallet(row.wallet)}
+              {/* Which agent, not just that one applied: an owner running two agents needs to
+                  tell them apart, and the full identifier is on the title for copying. */}
               {row.viaAgent ? (
-                <span className="ml-2 text-[11px] uppercase tracking-[0.12em] text-[var(--hanami-ink-soft)]">
-                  via agent
+                <span
+                  title={row.viaAgent}
+                  className="ml-2 text-[11px] uppercase tracking-[0.12em] text-[var(--hanami-ink-soft)]"
+                >
+                  via agent {shortWallet(row.viaAgent)}
                 </span>
               ) : null}
             </td>
