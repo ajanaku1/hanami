@@ -66,53 +66,59 @@ function median(values: number[]): number | null {
 /// later sale can be recognised as going back to the same person.
 type OpenPosition = { boughtAt: number; from: string };
 
-export function buildBrief(input: BriefInput): LedgerBrief {
-  const wallet = input.wallet;
-  const swapCount = input.swaps.filter((swap) => same(swap.from, wallet)).length;
+type Walked = { trades: number; flipsWithin7d: number; sameCounterpartySales: number; holdingDays: number[] };
 
-  // One timeline across every source, oldest first: which marketplace reported a trade says
-  // nothing about when it happened, and a buy must be seen before the sale it matches.
-  const timeline = input.trades
+/// Walks the wallet's trades oldest first and matches every sale to a buy.
+///
+/// One timeline across every source: which marketplace reported a trade says nothing about when it
+/// happened, and a buy must be seen before the sale it matches. Matching is FIFO per token, which
+/// is also how a mint is handled — the first time we see the wallet acquire a token starts the hold.
+function walkTimeline(trades: Trade[], wallet: string): Walked {
+  const timeline = trades
     .filter((trade) => same(trade.buyer, wallet) || same(trade.seller, wallet))
     .sort((a, b) => a.timestamp - b.timestamp);
 
-  // FIFO per token: the sale is matched to the earliest buy still open, which is also how a mint
-  // is handled — the first time we see the wallet acquire a token is the start of the hold.
   const open = new Map<string, OpenPosition[]>();
-  const holdingDays: number[] = [];
-  let flipsWithin7d = 0;
-  let sameCounterpartySales = 0;
+  const walked: Walked = { trades: timeline.length, flipsWithin7d: 0, sameCounterpartySales: 0, holdingDays: [] };
 
   for (const trade of timeline) {
     const key = `${trade.collection.toLowerCase()}:${trade.tokenId}`;
     const positions = open.get(key) ?? [];
+    open.set(key, positions);
 
     if (same(trade.buyer, wallet)) {
       positions.push({ boughtAt: trade.timestamp, from: trade.seller });
-      open.set(key, positions);
       continue;
     }
 
     const bought = positions.shift();
-    open.set(key, positions);
     // A sale of something we never saw arrive tells us nothing about how long it was held.
     if (!bought) continue;
 
     const held = trade.timestamp - bought.boughtAt;
-    holdingDays.push(held / DAY_SECONDS);
-    if (held <= FLIP_WINDOW_SECONDS) flipsWithin7d += 1;
-    if (same(trade.buyer, bought.from)) sameCounterpartySales += 1;
+    walked.holdingDays.push(held / DAY_SECONDS);
+    if (held <= FLIP_WINDOW_SECONDS) walked.flipsWithin7d += 1;
+    if (same(trade.buyer, bought.from)) walked.sameCounterpartySales += 1;
   }
 
-  const anySourceRead = input.sourcesRead.some((source) => source.ok);
-  const anyActivity = timeline.length > 0 || swapCount > 0;
+  return walked;
+}
+
+function statusOf(sourcesRead: SourceRead[], anyActivity: boolean): BriefStatus {
+  if (!sourcesRead.some((source) => source.ok)) return "unavailable";
+  return anyActivity ? "ready" : "empty";
+}
+
+export function buildBrief(input: BriefInput): LedgerBrief {
+  const swapCount = input.swaps.filter((swap) => same(swap.from, input.wallet)).length;
+  const walked = walkTimeline(input.trades, input.wallet);
 
   return {
-    wallet,
-    status: !anySourceRead ? "unavailable" : anyActivity ? "ready" : "empty",
-    flipsWithin7d,
-    sameCounterpartySales,
-    medianHoldingDays: median(holdingDays),
+    wallet: input.wallet,
+    status: statusOf(input.sourcesRead, walked.trades > 0 || swapCount > 0),
+    flipsWithin7d: walked.flipsWithin7d,
+    sameCounterpartySales: walked.sameCounterpartySales,
+    medianHoldingDays: median(walked.holdingDays),
     swapCount,
     sourcesRead: input.sourcesRead,
     truncated: input.sourcesRead.some((source) => source.count >= PAGE_CAP),

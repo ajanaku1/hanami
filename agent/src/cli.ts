@@ -68,6 +68,10 @@ export async function main(argv: string[]): Promise<number> {
     return 1;
   }
 
+  return runApply(rest);
+}
+
+async function runApply(rest: string[]): Promise<number> {
   const campaignUrl = rest[0];
   const wallet = flag(rest, "wallet");
   if (!campaignUrl || !wallet) {

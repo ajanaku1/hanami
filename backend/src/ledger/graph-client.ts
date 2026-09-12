@@ -173,45 +173,23 @@ async function querySource(
   };
 }
 
-export async function readLedger(request: ReadLedgerRequest): Promise<LedgerBrief> {
-  const wallet = request.wallet.toLowerCase();
-  const sources = request.sources ?? LEDGER_SOURCES;
-
-  if (!request.apiKey) {
-    request.log?.("ledger: no gateway key configured; the brief is unavailable");
-    return buildBrief({
-      wallet: request.wallet,
-      trades: [],
-      swaps: [],
-      sourcesRead: sources.map((source) => unread(source).read),
-      readAt: request.readAt,
-    });
-  }
-
-  // One deadline for the whole read. A source that loses the race keeps running to completion
-  // somewhere behind us; its answer is simply never looked at.
-  let expire: () => void = () => {};
-  const deadline = new Promise<"expired">((resolve) => {
-    const timer = setTimeout(() => resolve("expired"), request.budgetMs ?? GRAPH_BUDGET_MS);
+/// One deadline shared by every source. A source that loses the race keeps running to completion
+/// somewhere behind us; its answer is simply never looked at. `cancel` clears the timer so a fast
+/// read does not hold the process open waiting for a budget that no longer matters.
+function budget(ms: number): { expired: Promise<"expired">; cancel: () => void } {
+  let cancel: () => void = () => {};
+  const expired = new Promise<"expired">((resolve) => {
+    const timer = setTimeout(() => resolve("expired"), ms);
     timer.unref?.();
-    expire = () => {
+    cancel = () => {
       clearTimeout(timer);
       resolve("expired");
     };
   });
+  return { expired, cancel };
+}
 
-  const results = await Promise.all(
-    sources.map(async (source) => {
-      const answer = await Promise.race([querySource(source, request, wallet), deadline]);
-      if (answer === "expired") {
-        request.log?.(`ledger: ${source.name} did not answer inside the budget`);
-        return unread(source);
-      }
-      return answer;
-    }),
-  );
-  expire();
-
+function briefFrom(request: ReadLedgerRequest, results: SourceResult[]): LedgerBrief {
   return buildBrief({
     wallet: request.wallet,
     trades: results.flatMap((result) => result.trades),
@@ -219,4 +197,27 @@ export async function readLedger(request: ReadLedgerRequest): Promise<LedgerBrie
     sourcesRead: results.map((result) => result.read),
     readAt: request.readAt,
   });
+}
+
+export async function readLedger(request: ReadLedgerRequest): Promise<LedgerBrief> {
+  const wallet = request.wallet.toLowerCase();
+  const sources = request.sources ?? LEDGER_SOURCES;
+
+  if (!request.apiKey) {
+    request.log?.("ledger: no gateway key configured; the brief is unavailable");
+    return briefFrom(request, sources.map(unread));
+  }
+
+  const deadline = budget(request.budgetMs ?? GRAPH_BUDGET_MS);
+  const results = await Promise.all(
+    sources.map(async (source) => {
+      const answer = await Promise.race([querySource(source, request, wallet), deadline.expired]);
+      if (answer !== "expired") return answer;
+      request.log?.(`ledger: ${source.name} did not answer inside the budget`);
+      return unread(source);
+    }),
+  );
+  deadline.cancel();
+
+  return briefFrom(request, results);
 }

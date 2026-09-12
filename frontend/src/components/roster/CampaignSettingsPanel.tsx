@@ -24,17 +24,19 @@ export type CampaignSettings = {
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
+/// How the last save went. One value rather than two props, because "error" without a message and
+/// a message without "error" are both meaningless.
+export type SaveStatus = { state: SaveState; error?: string };
+
 export function CampaignSettingsPanel({
   settings,
   now,
-  state,
-  error,
+  save: saveStatus,
   onSave,
 }: {
   settings: CampaignSettings;
   now: number;
-  state: SaveState;
-  error?: string;
+  save: SaveStatus;
   onSave: (next: CampaignSettings) => void;
 }) {
   const [draft, setDraft] = useState<CampaignSettingsDraft>(() => ({
@@ -68,22 +70,22 @@ export function CampaignSettingsPanel({
         <button
           type="button"
           onClick={save}
-          disabled={state === "saving"}
+          disabled={saveStatus.state === "saving"}
           className="ui-button ui-button--primary"
         >
-          {state === "saving" ? "Saving…" : "Save settings"}
+          {saveStatus.state === "saving" ? "Saving…" : "Save settings"}
         </button>
 
-        {state === "saved" ? (
+        {saveStatus.state === "saved" ? (
           <span role="status" className="ui-status" data-tone="certified">
             Saved
           </span>
         ) : null}
       </div>
 
-      {state === "error" && error ? (
+      {saveStatus.state === "error" && saveStatus.error ? (
         <div role="alert" className="ui-notice" data-tone="error">
-          {error}
+          {saveStatus.error}
         </div>
       ) : null}
     </section>

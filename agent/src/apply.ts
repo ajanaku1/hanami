@@ -102,6 +102,21 @@ async function post(
   return REFUSALS.has(response.status) ? { kind: "refused", message } : { kind: "failed", message };
 }
 
+function toReceipt(body: TurnBody, walk: { campaign: string; agent: string; turns: number }): Receipt {
+  return {
+    campaign: walk.campaign,
+    agent: walk.agent,
+    turns: walk.turns,
+    decision: body.decision ?? "",
+    decisionTx: body.decisionTx ?? null,
+    attestationHash: body.attestationHash ?? null,
+    attestationPath: body.attestationPath ?? null,
+    ticket: body.ticket ?? null,
+    ticketState: body.ticketState ?? null,
+    brief: body.brief ?? null,
+  };
+}
+
 function render(receipt: Receipt): string {
   const lines = [
     `campaign      ${receipt.campaign}`,
@@ -155,19 +170,7 @@ export async function apply(options: ApplyOptions, deps: ApplyDeps): Promise<App
     if (answered.body.reply) history.push({ role: "assistant", content: answered.body.reply });
     if (!answered.body.decision) continue;
 
-    const receipt: Receipt = {
-      campaign: slug,
-      agent: options.agent,
-      turns: turn,
-      decision: answered.body.decision,
-      decisionTx: answered.body.decisionTx ?? null,
-      attestationHash: answered.body.attestationHash ?? null,
-      attestationPath: answered.body.attestationPath ?? null,
-      ticket: answered.body.ticket ?? null,
-      ticketState: answered.body.ticketState ?? null,
-      brief: answered.body.brief ?? null,
-    };
-
+    const receipt = toReceipt(answered.body, { campaign: slug, agent: options.agent, turns: turn });
     deps.log(options.json ? JSON.stringify(receipt, null, 2) : render(receipt));
     return { code: 0, receipt };
   }

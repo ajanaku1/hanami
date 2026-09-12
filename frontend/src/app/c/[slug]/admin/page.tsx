@@ -8,7 +8,7 @@ import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
 import { RosterTable } from "@/components/roster/RosterTable";
-import { CampaignSettingsPanel, type CampaignSettings, type SaveState } from "@/components/roster/CampaignSettingsPanel";
+import { CampaignSettingsPanel, type CampaignSettings, type SaveStatus } from "@/components/roster/CampaignSettingsPanel";
 import { useRoster } from "@/components/roster/useRoster";
 import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ShareBar } from "@/components/ShareBar";
@@ -33,8 +33,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const [verifyWallet, setVerifyWallet] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const roster = useRoster(slug, auth);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({ state: "idle" });
   const [openedAt] = useState(() => Math.floor(Date.now() / 1000));
 
   /// Saving settings is the owner's own write, so it carries its own signature rather than the one
@@ -42,16 +41,14 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const saveSettings = useCallback(
     async (next: CampaignSettings) => {
       if (!address) return;
-      setSaveState("saving");
-      setSaveError(undefined);
+      setSaveStatus({ state: "saving" });
       try {
         const nonce = Date.now();
         const sig = await signMessageAsync({ message: `Hanami: settings ${slug} at ${nonce}` });
         await api.saveSettings(slug, { ...next, caller: address, nonce, sig });
-        setSaveState("saved");
+        setSaveStatus({ state: "saved" });
       } catch (caught) {
-        setSaveState("error");
-        setSaveError(friendlyError(caught));
+        setSaveStatus({ state: "error", error: friendlyError(caught) });
       }
     },
     [address, signMessageAsync, slug],
@@ -272,8 +269,7 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
               ticketExpiry: campaign.ticket_expiry,
             }}
             now={openedAt}
-            state={saveState}
-            error={saveError}
+            save={saveStatus}
             onSave={saveSettings}
           />
 

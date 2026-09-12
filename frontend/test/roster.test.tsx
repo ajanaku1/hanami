@@ -138,7 +138,7 @@ describe("CampaignSettingsPanel", () => {
       <CampaignSettingsPanel
         settings={{ requiredCredential: "orb", closeAt: NOW + 7 * DAY, ticketExpiry: null }}
         now={NOW}
-        state="idle"
+        save={{ state: "idle" }}
         onSave={onSave}
         {...over}
       />,
@@ -184,7 +184,7 @@ describe("CampaignSettingsPanel", () => {
   });
 
   it("reports a save in flight and cannot be fired twice", () => {
-    const onSave = panel({ state: "saving" });
+    const onSave = panel({ save: { state: "saving" } });
 
     const button = screen.getByRole("button", { name: /saving|save/i }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -193,12 +193,12 @@ describe("CampaignSettingsPanel", () => {
   });
 
   it("confirms a save in words", () => {
-    panel({ state: "saved" });
+    panel({ save: { state: "saved" } });
     expect(screen.getByRole("status")).toHaveTextContent(/saved/i);
   });
 
   it("shows what failed and leaves the settings in place to try again", () => {
-    panel({ state: "error", error: "not owner" });
+    panel({ save: { state: "error", error: "not owner" } });
 
     expect(screen.getByRole("alert")).toHaveTextContent(/not owner/i);
     expect((screen.getByRole("button", { name: /save/i }) as HTMLButtonElement).disabled).toBe(false);

@@ -80,10 +80,18 @@ export function BriefPanel({ brief, loading }: { brief: BriefView | null; loadin
     );
   }
 
+  return (
+    <Frame>
+      <ReadyBrief brief={brief} />
+    </Frame>
+  );
+}
+
+function ReadyBrief({ brief }: { brief: BriefView }) {
   const held = brief.medianHoldingDays === null ? "unknown" : String(brief.medianHoldingDays);
 
   return (
-    <Frame>
+    <>
       <div role="status" className="ui-notice" data-tone="info">
         This is evidence, not a verdict. The bouncer may ask about it; it does not decide anything on
         its own.
@@ -103,7 +111,7 @@ export function BriefPanel({ brief, loading }: { brief: BriefView | null; loadin
       ) : null}
 
       <Sources sources={brief.sourcesRead} />
-    </Frame>
+    </>
   );
 }
 

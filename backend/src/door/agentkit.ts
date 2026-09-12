@@ -88,6 +88,41 @@ function challenge(resourceUri: string) {
   };
 }
 
+type Identified =
+  | { address: string; humanId: string }
+  | { refused: 403 | 503; body: { error: string; retryable?: true } };
+
+/// Who is behind this agent, or why we cannot say. The two failures are deliberately different: a
+/// signature that does not verify, or an agent AgentBook has never seen, is a refusal; a lookup we
+/// could not make is not, and must never be reported as one (CHK026).
+async function identifyAgent(deps: AgentDoorDeps, header: string): Promise<Identified> {
+  const verified = await deps.verifyHeader(header, deps.resourceUri);
+  if ("error" in verified) return { refused: 403, body: { error: verified.error } };
+
+  let humanId: string | null;
+  try {
+    humanId = await deps.lookupHuman(verified.address);
+  } catch (err) {
+    console.error("agentbook lookup failed:", (err as Error).message);
+    return {
+      refused: 503,
+      body: { error: "AgentBook could not be reached. Try again in a moment.", retryable: true },
+    };
+  }
+
+  if (!humanId) {
+    return {
+      refused: 403,
+      body: {
+        error:
+          "This agent is not registered in AgentBook. Register it with `npx @worldcoin/agentkit-cli register <agentWallet>` and confirm in World App.",
+      },
+    };
+  }
+
+  return { address: verified.address, humanId };
+}
+
 export function createAgentDoor(deps: AgentDoorDeps): MiddlewareHandler {
   return async (c, next) => {
     const header = c.req.header(AGENTKIT_HEADER);
@@ -113,35 +148,15 @@ export function createAgentDoor(deps: AgentDoorDeps): MiddlewareHandler {
 
     if (header === undefined) return c.json(challenge(deps.resourceUri), 402);
 
-    const verified = await deps.verifyHeader(header, deps.resourceUri);
-    if ("error" in verified) return c.json({ error: verified.error }, 403);
-
-    let humanId: string | null;
-    try {
-      humanId = await deps.lookupHuman(verified.address);
-    } catch (err) {
-      // We could not ask AgentBook. Saying "unregistered" here would send a registered agent off to
-      // register again; saying "try again" is the only honest answer.
-      console.error("agentbook lookup failed:", (err as Error).message);
-      return c.json({ error: "AgentBook could not be reached. Try again in a moment.", retryable: true }, 503);
-    }
-
-    if (!humanId) {
-      return c.json(
-        {
-          error:
-            "This agent is not registered in AgentBook. Register it with `npx @worldcoin/agentkit-cli register <agentWallet>` and confirm in World App.",
-        },
-        403,
-      );
-    }
+    const identified = await identifyAgent(deps, header);
+    if ("refused" in identified) return c.json(identified.body, identified.refused);
 
     const recorded = await recordProof(deps.db, {
       campaignSlug: slug,
       wallet,
-      nullifier: humanId,
+      nullifier: identified.humanId,
       method: "agentkit",
-      agentId: verified.address,
+      agentId: identified.address,
       verifiedAt: deps.now(),
     });
 

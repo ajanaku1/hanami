@@ -102,14 +102,22 @@ export async function buildVerifyPayload(db: Client, slug: string, wallet: strin
     return { status: 200, body: { ...base, kind: "router", trace: { requestId, provider, teeVerified } } };
   }
 
-  // Legacy rows stored no attestation. The last attested bouncer turn is the decision turn, and its
-  // router trace is what the hash on chain was computed from.
+  return fromLastAttestedTurn(db, applicant.id, base);
+}
+
+/// Legacy rows stored no attestation. The last attested bouncer turn is the decision turn, and its
+/// router trace is what the hash on chain was computed from.
+async function fromLastAttestedTurn(
+  db: Client,
+  applicantId: number,
+  base: Record<string, unknown>,
+): Promise<VerifyPayload> {
   const res = await db.execute({
     sql:
       "SELECT router_request_id, provider, tee_verified FROM turns " +
       "WHERE applicant_id = ? AND role = 'bouncer' AND router_request_id IS NOT NULL " +
       "ORDER BY turn_index DESC LIMIT 1",
-    args: [applicant.id],
+    args: [applicantId],
   });
   const turn = res.rows[0];
   if (!turn) return { status: 404, body: { error: "no attested turn on record" } };
