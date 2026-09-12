@@ -196,6 +196,11 @@ type VerifyBase = {
   decision: "approved" | "rejected";
   decisionTx: string | null;
   attestationHash: string;
+  /// Which path attested the decision: an enclave signature, or the Router's trace.
+  attestationPath?: "direct" | "router";
+  /// The Door's anonymous identifier. Null for a decision made before the Door existed.
+  nullifier?: string | null;
+  ticketId?: string | null;
 };
 // "router": recompute keccak of the x_0g_trace. "tee-signature": recompute keccak of the provider's
 // signature AND recover it to the provider's on-chain teeSignerAddress (stronger — Router not trusted).

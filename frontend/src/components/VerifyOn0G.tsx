@@ -18,7 +18,9 @@ type State =
   | { phase: "error"; message: string };
 
 // "Verify on 0G" — fetches the decision's attestation and re-derives it in the browser to match the
-// value recorded on 0G Chain. Two proofs, depending on how the decision was attested:
+// value recorded on 0G Chain, and shows the three identifiers the decision was recorded with: the
+// attestation hash, the Door's anonymous nullifier, and the decision transaction. Two proofs,
+// depending on how the decision was attested:
 //   - tee-signature (Direct broker): recompute keccak256(signature) to match the on-chain hash AND
 //     recover the signature to the provider's on-chain teeSignerAddress — the enclave signed it.
 //   - router: recompute keccak256(requestId, provider, tee_verified) and match on chain.
@@ -38,9 +40,12 @@ export function VerifyOn0G({ slug, wallet }: Props) {
     <div className="border border-[var(--hanami-rule)] bg-[var(--hanami-paper-raised)] max-w-md">
       <Header state={state} />
       {state.phase === "done" ? (
-        state.result.kind === "tee-signature"
-          ? <SignatureProof result={state.result} />
-          : <RouterProof result={state.result} />
+        <>
+          {state.result.kind === "tee-signature"
+            ? <SignatureProof result={state.result} />
+            : <RouterProof result={state.result} />}
+          <Recorded data={state.result.data} kind={state.result.kind} />
+        </>
       ) : (
         <IdleOrError state={state} onVerify={verify} />
       )}
@@ -135,6 +140,32 @@ function RouterProof({ result }: { result: Extract<Done, { kind: "router" }> }) 
         )}
         <DecisionTxLink tx={data.decisionTx} />
       </p>
+    </div>
+  );
+}
+
+const PATH_LABEL = {
+  direct: "Enclave signature (direct)",
+  router: "Router trace (router)",
+} as const;
+
+/// The three identifiers recorded with the decision, shown in full so they can be checked against
+/// 0G Chain by hand. A decision made before the Door has no nullifier, and a rejection has no
+/// ticket; both say so rather than showing an empty row.
+function Recorded({ data, kind }: { data: VerifyResult; kind: Done["kind"] }) {
+  const path = data.attestationPath ?? (kind === "tee-signature" ? "direct" : "router");
+  const ticketId = data.ticketId ?? null;
+
+  return (
+    <div className="px-4 py-3.5 border-t border-[var(--hanami-rule)] text-[12px]">
+      <div className="text-[10px] tracking-[0.16em] uppercase text-[var(--hanami-ink-soft)] pb-2">
+        Recorded on 0G
+      </div>
+      <TraceRow k="attestation" v={data.attestationHash} />
+      <TraceRow k="proof of human" v={data.nullifier ?? "no proof of human recorded"} />
+      <TraceRow k="decision tx" v={data.decisionTx ?? "not recorded"} />
+      <TraceRow k="path" v={PATH_LABEL[path]} />
+      <TraceRow k="ticket" v={ticketId ? `#${ticketId}` : "no ticket issued"} />
     </div>
   );
 }
