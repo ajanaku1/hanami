@@ -158,8 +158,8 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 ## Phase 10: Polish, evidence, release
 
-- [ ] T066 [P] Run `/simplify` and the code-review standards over new code (functions >30 lines, duplication, `any`, prop lists, async error handling); fix findings
-- [ ] T067 [P] Accessibility and responsive pass for Door, Brief, Receipt, Roster at 390×844 and 1280×800; append assertions to `frontend/test/ui-foundation.test.tsx`
+- [x] T066 [P] Run `/simplify` and the code-review standards over new code (functions >30 lines, duplication, `any`, prop lists, async error handling); fix findings
+- [x] T067 [P] Accessibility and responsive pass for Door, Brief, Receipt, Roster at 390×844 and 1280×800; append assertions to `frontend/test/ui-foundation.test.tsx`
 - [ ] T068 Deploy V2 contracts to 0G mainnet with `contracts/script/DeployV2.s.sol` (operator confirms; deployer key from existing `.env`), verify on Chainscan, set `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS`, `TICKET_GATE_ADDRESS` in operator env; record addresses in `README.md`
 - [ ] T069 Create one V2 demo campaign for Kenji on mainnet with a short close (for the expired state) and one with the demo window; keep Mei-chan on V1 to prove coexistence
 - [ ] T070 [P] Write `docs/feedback-world.md` (Selfie Check/AgentKit docs, portal navigation, sandbox states, what was confusing or broken) and `docs/ai-usage.md`

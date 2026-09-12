@@ -38,7 +38,10 @@ export function RosterTable({
   }
 
   return (
-    <table className="w-full text-sm">
+    // Seven columns do not fit a phone. The table scrolls inside its own container so the page
+    // itself never scrolls sideways at 390px.
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] text-sm">
       <thead>
         <tr>
           <th scope="col" className="text-left">Holder</th>
@@ -86,6 +89,7 @@ export function RosterTable({
           </tr>
         ))}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
