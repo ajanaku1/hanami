@@ -7,10 +7,11 @@ import { db, get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
 import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
-import { recordDecision, recordDecisionRouted, liveTicketId, ticketStatuses, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY } from "./og-chain.js";
+import { recordDecision, recordDecisionRouted, liveTicketId, ticketStatuses, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY, CAMPAIGN_FACTORY_V2 } from "./og-chain.js";
 import { recordApplicantDecision, retryTicket, type DecideDeps } from "./tickets/decide.js";
 import { createRosterRoutes } from "./tickets/roster.js";
 import { buildVerifyPayload } from "./tickets/verify.js";
+import { createSettingsRoutes, resolveSettings } from "./tickets/settings.js";
 import { prepareRevokeTicket } from "./tickets/chain-v2.js";
 import { buildExport } from "./merkle.js";
 import type { ChatTurn, Attestation } from "./og-compute.js";
@@ -160,6 +161,9 @@ const prepareBody = z.object({
   lorebook: z.string().default(""),
   ownerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   safetyRunId: z.string().uuid(),
+  requiredCredential: z.string().optional(),
+  closeAt: z.number().int().nullable().optional(),
+  ticketExpiry: z.number().int().nullable().optional(),
 });
 
 app.post("/api/campaigns/prepare", async (c) => {
@@ -169,6 +173,10 @@ app.post("/api/campaigns/prepare", async (c) => {
 
   const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
+
+  // Refuse a mistyped date here, before a portrait is generated and three transactions are signed.
+  const settings = resolveSettings(body, doorNow());
+  if (!settings.ok) return c.json({ error: settings.error }, 422);
 
   let certified;
   try {
@@ -213,7 +221,11 @@ app.post("/api/campaigns/prepare", async (c) => {
     safetyReportRoot: certified.reportRoot,
     backendAddress,
     registryAddress: BOUNCER_REGISTRY,
-    factoryAddress: CAMPAIGN_FACTORY,
+    // New campaigns are created against the V2 factory, which is what mints tickets; V1 campaigns
+    // keep working against the address they were created with.
+    factoryAddress: CAMPAIGN_FACTORY_V2 ?? CAMPAIGN_FACTORY,
+    factoryVersion: CAMPAIGN_FACTORY_V2 ? 2 : 1,
+    settings: settings.value,
   });
 });
 
@@ -236,6 +248,10 @@ const indexBody = z.object({
   campaignAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   campaignTx: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
   safetyRunId: z.string().uuid(),
+  requiredCredential: z.string().optional(),
+  closeAt: z.number().int().nullable().optional(),
+  ticketExpiry: z.number().int().nullable().optional(),
+  contractVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 app.post("/api/campaigns/index", async (c) => {
@@ -246,6 +262,10 @@ app.post("/api/campaigns/index", async (c) => {
 
   const exists = await get("SELECT 1 FROM campaigns WHERE slug = ?", [body.slug]);
   if (exists) return c.json({ error: "slug taken" }, 409);
+
+  const resolved = resolveSettings(body, doorNow());
+  if (!resolved.ok) return c.json({ error: resolved.error }, 422);
+  const settings = resolved.value;
 
   const tokenId = BigInt(body.bouncerTokenId);
   const onChainOwner = await readBouncerOwner(tokenId);
@@ -272,8 +292,8 @@ app.post("/api/campaigns/index", async (c) => {
   }
 
   await run(`
-    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, publication_policy, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO campaigns (slug, name, bouncer_token_id, bouncer_address, campaign_address, target_chain, wl_size_cap, persona_uri, lorebook_uri, image_uri, owner_address, visibility, publication_policy, created_at, required_credential, close_at, ticket_expiry, contract_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     body.slug,
     body.name,
@@ -289,6 +309,10 @@ app.post("/api/campaigns/index", async (c) => {
     publication.visibility,
     publication.publicationPolicy,
     Math.floor(Date.now() / 1000),
+    settings.requiredCredential,
+    settings.closeAt,
+    settings.ticketExpiry,
+    body.contractVersion ?? (CAMPAIGN_FACTORY_V2 ? 2 : 1),
   ]);
 
   return c.json({
@@ -871,6 +895,9 @@ app.route(
 // The applicant's own ledger brief. The Door is the authorization: a wallet with no verified proof
 // on this campaign is refused, so no one reads anyone else's brief.
 app.route("/api/campaigns", createBriefRoutes(briefDeps));
+
+// The owner's Door and ticket settings for a campaign that already exists.
+app.route("/api/campaigns", createSettingsRoutes({ db, now: doorNow }));
 
 // Door routes: verify a World proof and report the Door's state for a wallet. Rate limited like
 // every other public write, so a flood cannot hammer World's verifier through us.

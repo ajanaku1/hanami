@@ -86,11 +86,12 @@ export async function buildRoster(db: Client, deps: RosterDeps, slug: string): P
 
 const NONCE_WINDOW_MS = 10 * 60 * 1000;
 
-type Owned = { campaign: Address } | { error: string; status: 400 | 401 | 403 | 404 };
+export type Owned = { campaign: Address } | { error: string; status: 400 | 401 | 403 | 404 };
 
 /// Same signed-message authorization the other owner routes use: the owner proves the wallet, the
-/// nonce keeps the signature from being replayed later.
-async function authorizeOwner(
+/// nonce keeps the signature from being replayed later. Exported so every owner route authorizes
+/// the same way rather than growing its own variant.
+export async function authorizeOwner(
   db: Client,
   slug: string,
   action: string,
