@@ -8,6 +8,9 @@ import { Hono } from "hono";
 import { applyMigrations } from "../src/db/index.js";
 import { createDoorGuard, createDoorRoutes } from "../src/door/routes.js";
 import type { VerifyOutcome } from "../src/door/world-verify.js";
+import { createBriefRoutes, ensureBrief } from "../src/ledger/routes.js";
+import { buildTranscript } from "../src/transcript.js";
+import type { LedgerBrief } from "../src/ledger/brief.js";
 
 let client: Client | undefined;
 let dir: string | undefined;
@@ -314,5 +317,225 @@ describe("GET /door/context", () => {
     const body = await (await app.request("/api/campaigns/mei-chan/door/context")).text();
     assert.equal(body.includes("signing"), false);
     assert.equal(body.includes("SIGNING_KEY"), false);
+  });
+});
+
+// ---------------------------------------------------------------- the ledger brief (US3)
+
+/// A ledger read that records who it was asked about and answers from a script, so the routes can
+/// be exercised without the gateway.
+function fakeLedger(answers: LedgerBrief[] = []) {
+  const asked: string[] = [];
+  const read = async (wallet: string): Promise<LedgerBrief> => {
+    asked.push(wallet);
+    return answers.shift() ?? readyBrief(wallet);
+  };
+  return { asked, read };
+}
+
+function readyBrief(wallet: string, over: Partial<LedgerBrief> = {}): LedgerBrief {
+  return {
+    wallet,
+    status: "ready",
+    flipsWithin7d: 2,
+    sameCounterpartySales: 0,
+    medianHoldingDays: 30,
+    swapCount: 5,
+    sourcesRead: [
+      { name: "opensea-v2", subgraphId: "sg-opensea", ok: true, count: 7 },
+      { name: "uniswap-v3", subgraphId: "sg-uni", ok: true, count: 5 },
+    ],
+    truncated: false,
+    readAt: NOW,
+    ...over,
+  };
+}
+
+async function briefSetup(options: Options & { answers?: LedgerBrief[] } = {}) {
+  const base = await setup(options);
+  const ledger = fakeLedger(options.answers);
+  const app = new Hono();
+  app.route("/api/campaigns", createDoorRoutes({
+    db: base.db,
+    now: () => options.now ?? NOW,
+    verifyProof: async () => ({ status: "verified", nullifier: "0xnullifier", method: "orb" }),
+    rpId: "rp_test",
+    signRequest: () => ({ sig: "0x", nonce: "0x", createdAt: NOW, expiresAt: NOW + 600 }),
+  }));
+  app.route("/api/campaigns", createBriefRoutes({ db: base.db, now: () => options.now ?? NOW, readLedger: ledger.read }));
+  return { app, db: base.db, ledger };
+}
+
+async function applicantRow(db: Client, wallet: string) {
+  const res = await db.execute({
+    sql: "SELECT brief_json, brief_status FROM applicants WHERE campaign_slug = 'mei-chan' AND wallet_address = ?",
+    args: [wallet],
+  });
+  return res.rows[0];
+}
+
+describe("ensureBrief", () => {
+  test("reads the ledger once and keeps the answer with the applicant", async () => {
+    const { db, ledger } = await briefSetup();
+
+    const brief = await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+
+    assert.equal(brief.status, "ready");
+    assert.deepEqual(ledger.asked, [ALICE]);
+    const row = await applicantRow(db, ALICE);
+    assert.equal(row?.brief_status, "ready");
+    assert.deepEqual(JSON.parse(String(row?.brief_json)), brief);
+  });
+
+  test("a second read is served from the stored brief, not the gateway", async () => {
+    const { db, ledger } = await briefSetup();
+
+    const first = await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+    const second = await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+
+    assert.deepEqual(second, first);
+    assert.equal(ledger.asked.length, 1, "the gateway is read once per applicant");
+  });
+
+  test("an empty history is a real answer and is not read again", async () => {
+    const { db, ledger } = await briefSetup({ answers: [readyBrief(ALICE, { status: "empty" })] });
+
+    await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+    await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+
+    assert.equal(ledger.asked.length, 1);
+    assert.equal((await applicantRow(db, ALICE))?.brief_status, "empty");
+  });
+
+  test("an unavailable brief is retried on the next look", async () => {
+    const { db, ledger } = await briefSetup({
+      answers: [readyBrief(ALICE, { status: "unavailable" }), readyBrief(ALICE)],
+    });
+
+    const first = await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+    const second = await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+
+    assert.equal(first.status, "unavailable");
+    assert.equal(second.status, "ready");
+    assert.equal(ledger.asked.length, 2);
+    assert.equal((await applicantRow(db, ALICE))?.brief_status, "ready");
+  });
+
+  test("a gateway that throws is an unavailable brief, never a failed application", async () => {
+    const { db } = await briefSetup();
+
+    const brief = await ensureBrief(
+      { db, now: () => NOW, readLedger: async () => { throw new Error("gateway down"); } },
+      "mei-chan",
+      ALICE,
+    );
+
+    assert.equal(brief.status, "unavailable");
+    assert.equal((await applicantRow(db, ALICE))?.brief_status, "unavailable");
+  });
+
+  test("two applicants keep separate briefs", async () => {
+    const { db, ledger } = await briefSetup();
+
+    await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", ALICE);
+    await ensureBrief({ db, now: () => NOW, readLedger: ledger.read }, "mei-chan", BOB);
+
+    assert.equal(JSON.parse(String((await applicantRow(db, ALICE))?.brief_json)).wallet, ALICE);
+    assert.equal(JSON.parse(String((await applicantRow(db, BOB))?.brief_json)).wallet, BOB);
+  });
+});
+
+describe("GET /brief", () => {
+  async function readBrief(app: Hono, wallet: string) {
+    return app.request(`/api/campaigns/mei-chan/brief?wallet=${wallet}`);
+  }
+
+  test("gives a wallet that passed the Door its own brief", async () => {
+    const { app } = await briefSetup();
+    await verify(app, ALICE);
+
+    const response = await readBrief(app, ALICE);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.status, "ready");
+    assert.equal(body.sourcesRead.length, 2);
+  });
+
+  test("refuses a wallet that has not passed the Door with 403", async () => {
+    const { app, ledger } = await briefSetup();
+
+    const response = await readBrief(app, ALICE);
+    assert.equal(response.status, 403);
+    assert.equal(ledger.asked.length, 0, "an unverified wallet never costs a gateway read");
+  });
+
+  test("one applicant cannot read another applicant's brief", async () => {
+    const { app } = await briefSetup();
+    await verify(app, ALICE);
+
+    // BOB never passed this Door, so asking for BOB's brief is refused whoever is asking.
+    assert.equal((await readBrief(app, BOB)).status, 403);
+  });
+
+  test("never answers with proof material", async () => {
+    const { app } = await briefSetup();
+    await verify(app, ALICE);
+
+    const body = await (await readBrief(app, ALICE)).text();
+    assert.doesNotMatch(body, /nullifier/i);
+    assert.doesNotMatch(body, /0xproof/);
+  });
+
+  test("404s for a campaign that does not exist", async () => {
+    const { app } = await briefSetup();
+    const response = await app.request(`/api/campaigns/nope/brief?wallet=${ALICE}`);
+    assert.equal(response.status, 404);
+  });
+
+  test("400s when no wallet is named", async () => {
+    const { app } = await briefSetup();
+    assert.equal((await app.request("/api/campaigns/mei-chan/brief")).status, 400);
+  });
+
+  test("an unavailable read still answers, so the panel can say so", async () => {
+    const { app } = await briefSetup({ answers: [readyBrief(ALICE, { status: "unavailable" })] });
+    await verify(app, ALICE);
+
+    const response = await readBrief(app, ALICE);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).status, "unavailable");
+  });
+});
+
+describe("buildTranscript", () => {
+  test("carries the brief beside the turns, so the pinned record holds the evidence", () => {
+    const brief = readyBrief(ALICE);
+    const transcript = buildTranscript({
+      campaign: "mei-chan",
+      wallet: ALICE,
+      decision: "approved",
+      turns: [{ turn_index: 0, role: "bouncer", content: "hello" }],
+      brief,
+    });
+
+    const parsed = JSON.parse(transcript);
+    assert.deepEqual(parsed.brief, brief);
+    assert.equal(parsed.campaign, "mei-chan");
+    assert.equal(parsed.applicant, ALICE);
+    assert.equal(parsed.decision, "approved");
+    assert.equal(parsed.turns.length, 1);
+  });
+
+  test("says the brief was missing rather than omitting the field", () => {
+    const parsed = JSON.parse(buildTranscript({
+      campaign: "mei-chan",
+      wallet: ALICE,
+      decision: "rejected",
+      turns: [],
+      brief: null,
+    }));
+
+    assert.equal(parsed.brief, null);
+    assert.ok("brief" in parsed, "an auditor must be able to tell a missing brief from an old format");
   });
 });

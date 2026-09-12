@@ -22,6 +22,11 @@ import { SafetyRepository } from "./safety/repository.js";
 import { SafetyRunner, type SafetyInference } from "./safety/runner.js";
 import { createSafetyRoutes } from "./safety/routes.js";
 import { createDoorGuard, createDoorRoutes } from "./door/routes.js";
+import { createBriefRoutes, ensureBrief, type BriefDeps } from "./ledger/routes.js";
+import { readLedger } from "./ledger/graph-client.js";
+import type { LedgerBrief } from "./ledger/brief.js";
+import { summarizeBrief } from "./ledger/prompt.js";
+import { buildTranscript } from "./transcript.js";
 import { verifyWorldProof } from "./door/world-verify.js";
 import { signRequest } from "@worldcoin/idkit-server";
 import { hashBouncerContent } from "./safety/content-hash.js";
@@ -93,6 +98,32 @@ const decideDeps: DecideDeps = {
   readTicketId: (campaign, wallet) => liveTicketId(campaign, wallet),
 };
 const doorGuard = createDoorGuard({ db, now: doorNow });
+
+// The ledger brief. Read from the decentralized gateway with the operator's key; with no key the
+// read is skipped and the brief is `unavailable`, which every surface already knows how to say.
+const briefDeps: BriefDeps = {
+  db,
+  now: doorNow,
+  readLedger: (wallet) =>
+    readLedger({
+      wallet,
+      apiKey: process.env.GRAPH_API_KEY ?? "",
+      fetchImpl: fetch,
+      readAt: doorNow(),
+      log: (line) => console.warn(line),
+    }),
+};
+
+/// Best-effort by contract: a brief must never keep an applicant out of an interview, so a failure
+/// here becomes "no evidence" rather than an error the applicant sees (FR-011).
+async function briefFor(slug: string, wallet: string): Promise<LedgerBrief | null> {
+  try {
+    return await ensureBrief(briefDeps, slug, wallet);
+  } catch (err) {
+    console.error("brief unavailable:", (err as Error).message);
+    return null;
+  }
+}
 app.use("/api/campaigns/:slug/begin", doorGuard);
 app.use("/api/campaigns/:slug/turns", doorGuard);
 
@@ -421,11 +452,16 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
   const applicant = await ensureApplicant(slug, walletAddress);
   if (applicant.decision) return c.json({ error: "already decided", decision: applicant.decision }, 409);
 
+  // The Door has already been passed to get here, so this is the first moment the brief can be
+  // read. It is read before the greeting so the panel has something to show while the applicant
+  // types, and kept, so the interview and the receipt cite the same figures.
+  const brief = await briefFor(slug, walletAddress);
+
   const existing = await get<{ content: string }>(
     "SELECT content FROM turns WHERE applicant_id = ? AND turn_index = 0 AND role = 'bouncer'",
     [applicant.id],
   );
-  if (existing) return c.json({ reply: existing.content });
+  if (existing) return c.json({ reply: existing.content, brief });
 
   const personaText = await fetchText(campaign.persona_uri);
   const lorebookText = campaign.lorebook_uri ? await fetchText(campaign.lorebook_uri) : "";
@@ -445,7 +481,7 @@ app.post("/api/campaigns/:slug/begin", async (c) => {
     [applicant.id],
   );
 
-  return c.json({ reply: stored?.content ?? turn.reply });
+  return c.json({ reply: stored?.content ?? turn.reply, brief });
 });
 
 app.post("/api/campaigns/:slug/turns", async (c) => {
@@ -481,7 +517,10 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
   const personaText = await fetchText(campaign.persona_uri);
   const lorebookText = campaign.lorebook_uri ? await fetchText(campaign.lorebook_uri) : "";
 
-  const turn = await bouncerTurn({ persona: personaText, lorebook: lorebookText, history: chat });
+  // Evidence, not a verdict: the brief goes into the prompt as a fenced block, and an unreadable
+  // ledger is stated as such rather than left silent.
+  const brief = await briefFor(slug, walletAddress);
+  const turn = await bouncerTurn({ persona: personaText, lorebook: lorebookText, history: chat, evidence: brief });
 
   const bouncerIndex = userIndex + 1;
   await run(`INSERT INTO turns (applicant_id, turn_index, role, content, router_request_id, provider, tee_verified, created_at)
@@ -499,11 +538,12 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     "SELECT turn_index, role, content, router_request_id, provider, tee_verified, created_at FROM turns WHERE applicant_id = ? ORDER BY turn_index ASC",
     [applicant.id],
   );
-  const transcriptUp = await uploadText(JSON.stringify({
+  const transcriptUp = await uploadText(buildTranscript({
     campaign: slug,
-    applicant: walletAddress.toLowerCase(),
+    wallet: walletAddress,
     decision: turn.decision.kind === "approve" ? "approved" : "rejected",
     turns: fullTurns,
+    brief,
   }));
 
   // The decision goes to whichever contract this campaign was created against; a V2 campaign also
@@ -554,6 +594,11 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     transcriptRoot: transcriptUp.rootHash,
     ticket: receipt.ticket,
     ticketState: receipt.ticketState,
+    brief: {
+      status: brief?.status ?? "unavailable",
+      summary: summarizeBrief(brief),
+      sourcesRead: brief?.sourcesRead ?? [],
+    },
     repScore,
   });
 });
@@ -852,6 +897,10 @@ app.route(
     },
   }),
 );
+
+// The applicant's own ledger brief. The Door is the authorization: a wallet with no verified proof
+// on this campaign is refused, so no one reads anyone else's brief.
+app.route("/api/campaigns", createBriefRoutes(briefDeps));
 
 // Door routes: verify a World proof and report the Door's state for a wallet. Rate limited like
 // every other public write, so a flood cannot hammer World's verifier through us.
