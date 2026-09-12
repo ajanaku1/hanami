@@ -154,3 +154,21 @@ the old backend does not serve, so the Door would report itself unavailable and 
 `render.yaml` has `autoDeploy: false` (a redeploy wipes the ephemeral disk), so the backend is a
 manual deploy from the Render dashboard — an operator action. The file now declares every key the
 new code reads, with real values for the two V2 addresses and `sync: false` for everything secret.
+
+## 2026-09-12 — the demo campaign uses a bouncer we can sign for, not Kenji (T069)
+
+**Plan**: "Create one V2 demo campaign for Kenji on mainnet."
+
+**Found**: Kenji is bouncer `#20`, owned on chain by `0x96Cb8EB2E349e64bA47b1015890A2fe7584c369B`.
+`CampaignFactoryV2.createCampaign` reverts with `NotBouncerOwner` unless the caller owns the token,
+so only that wallet can create a Kenji campaign. The operator wallet
+`0x34b0Ba20669f3ec4F1056853780c381e5e35F724` owns `#17`, `#18`, `#21` and `#22` and is authorized on
+them.
+
+**Decision**, with the user on 2026-09-12: use a bouncer the operator owns — `#22` Slow Collectors
+Circle is live and certified — and keep Mei-chan/V1 campaigns untouched, which is what the task
+actually needs to prove (V1 and V2 coexisting). The demo path in `design.md` does not depend on
+which persona runs the V2 campaign.
+
+The ordered deploy is written up in `quickstart.md`, including why the backend must go out before
+the frontend.
