@@ -1,4 +1,5 @@
 import type { SafetyClient } from "./safety";
+import type { BriefView } from "@/components/door/BriefPanel";
 
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787";
 
@@ -162,6 +163,8 @@ export type TurnResult = {
   transcriptRoot?: string;
   ticket?: TicketBlock | null;
   ticketState?: TicketState;
+  /// What the bouncer was given as evidence, summarised for the receipt.
+  brief?: { status: "ready" | "empty" | "unavailable"; summary: string; sourcesRead: Array<{ name: string; ok: boolean }> };
   repScore?: number;
 };
 
@@ -316,6 +319,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ walletAddress }),
     }),
+  /// The applicant's own ledger brief. Only a wallet that passed this campaign's Door gets one.
+  getBrief: (slug: string, wallet: string) =>
+    callIdempotent<BriefView>(`/api/campaigns/${slug}/brief?wallet=${wallet}`),
   getDoorContext: (slug: string) =>
     callIdempotent<{ rpContext: DoorRpContext | null }>(`/api/campaigns/${slug}/door/context`),
   getDoorStatus: (slug: string, wallet: string) =>

@@ -3,8 +3,10 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccount } from "wagmi";
+import { BriefPanel } from "@/components/door/BriefPanel";
 import { DoorPanel } from "@/components/door/DoorPanel";
 import { Receipt } from "@/components/door/Receipt";
+import { useBrief } from "@/components/door/useBrief";
 import { useDoor } from "@/components/door/useDoor";
 import { applicant } from "@/copy";
 import { api, warmBackend, type Campaign, type TurnResult } from "@/lib/api";
@@ -40,6 +42,9 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wallet = address ?? "";
   const door = useDoor(slug, address ?? null);
+  // The brief is read the moment the Door opens, so the applicant reads it before the interview
+  // rather than meeting it for the first time on the receipt.
+  const ledger = useBrief(slug, address ?? null, door.verified);
   const history = chat.history;
 
   // Warm the (free-tier) backend the moment the page opens so it wakes in the background instead of
@@ -208,6 +213,11 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
                   />
                 </div>
                 {door.verified ? (
+                  <div className="mb-8">
+                    <BriefPanel brief={ledger.brief} loading={ledger.loading} />
+                  </div>
+                ) : null}
+                {door.verified ? (
                   <button
                     onClick={() => setStarted(true)}
                     className="bg-[var(--hanami-ink)] text-[var(--hanami-paper)] px-6 py-3 text-sm tracking-[0.08em] uppercase hover:bg-[var(--hanami-indigo)] transition-colors"
@@ -255,7 +265,11 @@ export default function ApplicantPage({ params }: { params: Promise<Params> }) {
                     nullifier: null,
                     ticket: decision.ticket ?? null,
                     ticketState: decision.ticketState ?? "none",
-                    brief: { status: "unavailable", summary: "—", sourcesRead: 0 },
+                    brief: {
+                      status: decision.brief?.status ?? "unavailable",
+                      summary: decision.brief?.summary ?? "—",
+                      sourcesRead: decision.brief?.sourcesRead.filter((source) => source.ok).length ?? 0,
+                    },
                     txHash: decision.decisionTx,
                   }}
                 />
