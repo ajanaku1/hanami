@@ -43,3 +43,23 @@ says the Door is unavailable, rather than handing the browser a context World wo
 
 **Still open**: until the key is set, no live proof can be issued, so `./verify.sh live` cannot
 pass and the World sandbox QR check in the manual release list cannot be done.
+
+## 2026-09-12 — two `brief` predicates did not match a working implementation (T038, T045)
+
+**Plan**: `./verify.sh brief` asserts the graph client names seven subgraph ids
+(`[1-9A-HJ-NP-Za-km-z]{46}`) and asks for `first: 500`.
+
+**Found**: neither clause could pass a correct implementation. The Graph's subgraph ids are 44
+base58 characters, not 46 — 46 is the length of an IPFS deployment hash (`Qm…`), and all seven ids
+settled in `research.md` are 44. Separately, widening the pattern to `{43,46}` made the check fail
+a second way: `checksh` hands its command to `sh -c`, the inner double quotes end the outer quoted
+string, and the shell brace-expands `{43,46}` into two words, so `test` sees too many arguments.
+
+**Changed**: the id clause now counts distinct `subgraphId:` values, which needs no nested quotes
+and no braced range, and still requires seven of them. The cap clause was left alone and the
+implementation was written to satisfy it: both query templates write `first: 500` literally rather
+than passing a `$first` variable, and a unit test holds that literal equal to `PAGE_CAP`, so the
+number the gateway is asked for and the number the brief reports truncation against cannot drift.
+
+Neither predicate was weakened: seven distinct real subgraph ids and a literal page cap are still
+required, and `npm test` still gates the phase.

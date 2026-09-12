@@ -38,16 +38,18 @@ export function gatewayUrl(subgraphId: string): string {
 type GraphResponse = { ok: boolean; status: number; json(): Promise<unknown> };
 export type GraphFetch = (url: string, init: RequestInit) => Promise<GraphResponse>;
 
-/// Both sides of the wallet in one request: what it bought and what it sold, newest first.
-const TRADE_QUERY = `query WalletTrades($wallet: String!, $first: Int!) {
-  bought: trades(where: { buyer: $wallet }, orderBy: timestamp, orderDirection: desc, first: $first) {
+/// Both sides of the wallet in one request: what it bought and what it sold, newest first. The page
+/// size is written out rather than passed as a variable so the cap is readable in the query itself;
+/// a test holds it equal to PAGE_CAP.
+const TRADE_QUERY = `query WalletTrades($wallet: String!) {
+  bought: trades(where: { buyer: $wallet }, orderBy: timestamp, orderDirection: desc, first: 500) {
     collection { id }
     tokenId
     buyer
     seller
     timestamp
   }
-  sold: trades(where: { seller: $wallet }, orderBy: timestamp, orderDirection: desc, first: $first) {
+  sold: trades(where: { seller: $wallet }, orderBy: timestamp, orderDirection: desc, first: 500) {
     collection { id }
     tokenId
     buyer
@@ -56,8 +58,8 @@ const TRADE_QUERY = `query WalletTrades($wallet: String!, $first: Int!) {
   }
 }`;
 
-const SWAP_QUERY = `query WalletSwaps($wallet: String!, $first: Int!) {
-  swaps(where: { from: $wallet }, orderBy: timestamp, orderDirection: desc, first: $first) {
+const SWAP_QUERY = `query WalletSwaps($wallet: String!) {
+  swaps(where: { from: $wallet }, orderBy: timestamp, orderDirection: desc, first: 500) {
     from
     timestamp
   }
@@ -128,7 +130,7 @@ async function querySource(
     response = await request.fetchImpl(gatewayUrl(source.subgraphId), {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${request.apiKey}` },
-      body: JSON.stringify({ query, variables: { wallet, first: PAGE_CAP } }),
+      body: JSON.stringify({ query, variables: { wallet } }),
     });
   } catch {
     // The error can carry the request, and the request carries the key.

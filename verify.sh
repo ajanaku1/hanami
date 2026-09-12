@@ -116,7 +116,7 @@ checksh tickets "Receipt, RosterTable, RevokeButton are tested and mounted" '
 checksh brief "ledger modules read seven sources with one template each and the pure brief is tested" '
   test -f backend/src/ledger/graph-client.ts && test -f backend/src/ledger/brief.ts && test -f backend/src/ledger/prompt.ts &&
   test -f backend/test/ledger-brief.test.ts && test -f backend/test/ledger-graph.test.ts && test -f backend/test/ledger-prompt.test.ts &&
-  test "$(grep -Eo "[1-9A-HJ-NP-Za-km-z]{46}" backend/src/ledger/graph-client.ts | sort -u | wc -l | tr -d " ")" -ge 7 &&
+  test $(grep -Eo "subgraphId: .[1-9A-HJ-NP-Za-km-z]+" backend/src/ledger/graph-client.ts | sort -u | wc -l) -ge 7 &&
   grep -q "first: 500" backend/src/ledger/graph-client.ts &&
   grep -qi "evidence" backend/src/ledger/prompt.ts &&
   cd backend && npm test

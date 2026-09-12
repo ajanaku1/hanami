@@ -113,7 +113,7 @@ describe("readLedger", () => {
     assert.match(body.query, /orderBy:\s*timestamp/);
     assert.match(body.query, /orderDirection:\s*desc/);
     assert.equal(body.variables.wallet, WALLET.toLowerCase());
-    assert.equal(body.variables.first, PAGE_CAP);
+    assert.ok(body.query.includes(`first: ${PAGE_CAP}`), "the query must ask for exactly the cap the brief reports against");
   });
 
   test("one swap template asks the exchanges for the wallet's own swaps", async () => {
@@ -128,7 +128,7 @@ describe("readLedger", () => {
     assert.ok(dexBody, "expected a dex query");
     assert.match(dexBody.query, /swaps\s*\(/);
     assert.match(dexBody.query, /from:/);
-    assert.equal(dexBody.variables.first, PAGE_CAP);
+    assert.ok(dexBody.query.includes(`first: ${PAGE_CAP}`), "the query must ask for exactly the cap the brief reports against");
   });
 
   test("the seven sources are read in parallel, not one after another", async () => {
