@@ -1,5 +1,7 @@
 import { chat, type ChatTurn, type Trace, type Attestation } from "./og-compute.js";
 import { chatDirectSigned, directEnabled } from "./og-compute-direct.js";
+import { renderEvidence } from "./ledger/prompt.js";
+import type { LedgerBrief } from "./ledger/brief.js";
 
 const MIN_TURNS = 3;
 const MAX_TURNS = 6;
@@ -33,6 +35,9 @@ export type BouncerInput = {
   lorebook: string;
   history: ChatTurn[];   // alternating user/assistant, ending in latest user message
   forceDecision?: boolean;
+  /// The ledger brief, when one was read. Absent means no brief was attempted; an `unavailable`
+  /// brief means one was and the gateway did not answer — the bouncer is told which.
+  evidence?: LedgerBrief | null;
 };
 
 const FRAME_PREFIX = [
@@ -107,22 +112,32 @@ export function decisionForTurn(reply: string, turns: number, mustDecide: boolea
 
 /// One bouncer turn. Caller appends `reply` to history before calling again with the next applicant message.
 /// Forces a decision when applicantTurnCount reaches MAX_TURNS even if the model didn't tag one.
-export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
+/// The exact messages one turn sends. Pure, so the prompt the model actually receives — persona,
+/// then evidence, then turn guidance — can be asserted without spending an inference.
+export function buildTurnMessages(input: BouncerInput): ChatTurn[] {
   const turns = applicantTurnCount(input.history);
   const mustDecide = input.forceDecision === true || turns >= MAX_TURNS;
   const mayDecide = turns >= MIN_TURNS;
 
-  const system = buildSystemPrompt(input.persona, input.lorebook);
   const guidance = mustDecide
     ? "This is your final reply. Issue your verdict tag now."
     : mayDecide
     ? "You may issue your verdict tag now if you have heard enough."
     : "Keep the conversation going. Do not issue a verdict tag yet.";
 
-  const messages: ChatTurn[] = [
-    { role: "system", content: `${system}\n\nTurn guidance: ${guidance}` },
-    ...input.history,
-  ];
+  const sections = [buildSystemPrompt(input.persona, input.lorebook)];
+  if (input.evidence !== undefined) sections.push(renderEvidence(input.evidence));
+  sections.push(`Turn guidance: ${guidance}`);
+
+  return [{ role: "system", content: sections.join("\n\n") }, ...input.history];
+}
+
+export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
+  const turns = applicantTurnCount(input.history);
+  const mustDecide = input.forceDecision === true || turns >= MAX_TURNS;
+  const mayDecide = turns >= MIN_TURNS;
+
+  const messages = buildTurnMessages(input);
 
   const { content, trace, attestation } = await infer(messages, mayDecide);
   const decision = decisionForTurn(content, turns, mustDecide);
