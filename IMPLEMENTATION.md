@@ -103,3 +103,31 @@ contains code on 0G mainnet. The table is therefore written now, with each addre
 deploy* rather than filled with a placeholder that would read as real. `release` passes because the
 contracts and their env keys are recorded; `live` stays red, correctly, until the operator runs
 `contracts/script/DeployV2.s.sol` and pastes the three addresses in (T068).
+
+## 2026-09-12 — CampaignFactoryV2 and Ticket are live on 0G mainnet (T068)
+
+Deployed with `contracts/script/DeployV2.s.sol` after a clean dry run, on the user's explicit
+instruction (the script and `CLAUDE.md` both make broadcasting an operator action).
+
+| Contract | Address |
+|---|---|
+| CampaignFactoryV2 | `0xdb03669FD2EDA044e65333D860952A9d77094b28` |
+| Ticket | `0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B` |
+
+Tx `0x7cbabefbff259e400e21e776c3e6250ff33d951e99da8500ae7bbbbcfaf5774a`, block 44174303, sender
+`0x34b0Ba20669f3ec4F1056853780c381e5e35F724`, ~0.0119 OG. Confirmed on chain after the fact:
+`factory.ticket()` and `ticket.factory()` point at each other, and `factory.registry()` is the V1
+registry, untouched.
+
+**Not verified on Chainscan yet**: `foundry.toml` wants `CHAINSCAN_API_KEY` and `CHAINSCAN_API_URL`
+and neither is in the operator environment, so `--verify` was left off rather than failing the
+broadcast. Verification is a separate `forge verify-contract` once those exist.
+
+**TicketGate is not deployed**: it takes a campaign address in its constructor, and no V2 campaign
+exists yet. The same script deploys it on a second run once `DEMO_CAMPAIGN_V2` is set (T069), which
+is why the first `live` check stays red.
+
+**One README wording change was load-bearing**: the `live` check parses the address table with
+`[^0-9x]*` between the contract name and the address, so the word "expiring" ended the match at its
+own `x` and the Ticket address could not be read. The row now says "time-limited". The predicate is
+unchanged — it was the prose that had to be parseable.

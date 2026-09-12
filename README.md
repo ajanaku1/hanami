@@ -147,13 +147,19 @@ the addresses above and are not migrated, redeployed, or touched.
 
 | Contract (V2) | Address |
 |---|---|
-| CampaignFactoryV2 (mints tickets on approval) | _pending deploy — `contracts/script/DeployV2.s.sol`_ |
-| Ticket (soulbound, expiring, owner-revocable) | _pending deploy — deployed by the factory's constructor_ |
-| TicketGate (demo consumer: requires a live ticket) | _pending deploy_ |
+| CampaignFactoryV2 (mints tickets on approval) | [`0xdb03669FD2EDA044e65333D860952A9d77094b28`](https://chainscan.0g.ai/address/0xdb03669FD2EDA044e65333D860952A9d77094b28) |
+| Ticket (soulbound, time-limited, owner-revocable) | [`0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B`](https://chainscan.0g.ai/address/0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B) |
+| TicketGate (demo consumer: requires a live ticket) | _deploys with the demo campaign — see below_ |
 
-Set as `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS` and `TICKET_GATE_ADDRESS` in the operator environment
-(`backend/.env.example` documents all three). `./verify.sh live` reads the addresses out of this
-table and checks each one contains code on chain, so it stays red until they are real.
+Deployed in [`0x7cbabefbff259e400e21e776c3e6250ff33d951e99da8500ae7bbbbcfaf5774a`](https://chainscan.0g.ai/tx/0x7cbabefbff259e400e21e776c3e6250ff33d951e99da8500ae7bbbbcfaf5774a)
+(block `44174303`). The factory deploys its own `Ticket` in its constructor, so minting authority is
+structural rather than a wiring step: `Ticket.factory` is immutable and only campaigns this factory
+created are ever registered as minters. Confirmed on chain — `factory.ticket()` and
+`ticket.factory()` point at each other, and `factory.registry()` is the untouched V1 registry above.
+
+`TicketGate` needs a campaign to gate, so it deploys on a second run of the same script once
+`DEMO_CAMPAIGN_V2` is set. Set the three addresses as `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS` and
+`TICKET_GATE_ADDRESS` in the operator environment (`backend/.env.example` documents all three).
 
 ### Live certified bouncers
 
