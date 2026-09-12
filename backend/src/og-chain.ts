@@ -8,6 +8,7 @@ import {
   encodeAbiParameters,
   parseAbi,
   parseEventLogs,
+  zeroHash,
   type Address,
   type Hex,
 } from "viem";
@@ -138,7 +139,7 @@ export async function mintBouncer(personaURI: string, lorebookURI: string, image
     address: BOUNCER_REGISTRY,
     abi: registryAbi,
     functionName: "mintBouncer",
-    args: [personaURI, lorebookURI, imageURI, "0x0000000000000000000000000000000000000000000000000000000000000000"],
+    args: [personaURI, lorebookURI, imageURI, zeroHash],
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   const [minted] = parseEventLogs({ abi: registryAbi, eventName: "BouncerMinted", logs: receipt.logs });

@@ -88,17 +88,17 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: wallet with history → `ready` with ≥2 sources; fresh wallet → `empty`; provider down → `unavailable` and interview proceeds.
 
-- [ ] T035 [P] [US3] Write failing tests `backend/test/ledger-brief.test.ts` for pure `backend/src/ledger/brief.ts` (flipsWithin7d, sameCounterpartySales, medianHoldingDays, swapCount, truncated flag at 500, empty input → `empty`)
-- [ ] T036 [P] [US3] Write failing tests `backend/test/ledger-graph.test.ts` for `backend/src/ledger/graph-client.ts` (seven sources, one `Trade` template with buyer/seller, one `Swap` template with `from`, parallel with 12 s budget, per-source failure recorded, all-fail → `unavailable`, late result discarded)
-- [ ] T037 [US3] Implement `backend/src/ledger/brief.ts` until T035 passes
-- [ ] T038 [US3] Implement `backend/src/ledger/graph-client.ts` with injected fetch and `GRAPH_API_KEY` gateway URLs until T036 passes
-- [ ] T039 [P] [US3] Write failing tests `backend/test/ledger-prompt.test.ts` for `backend/src/ledger/prompt.ts` (fenced evidence block with the "evidence, not verdict" instruction; unavailable → "no ledger evidence" line) and for `bouncerTurn` accepting an optional `evidence` argument in `backend/src/bouncer.ts`
-- [ ] T040 [US3] Implement `backend/src/ledger/prompt.ts` and the `evidence` argument until T039 passes
-- [ ] T041 [US3] Write failing route tests in `backend/test/door-routes.test.ts`: `/begin` triggers the brief after a verified Door, persists `brief_json`/`brief_status`, `GET /brief?wallet=` returns only the caller's own brief (403 otherwise), brief included in the transcript uploaded to 0G Storage; then implement in `backend/src/server.ts`
-- [ ] T042 [P] [US3] Write failing Vitest `frontend/test/brief-panel.test.tsx` for `BriefPanel` (reading, ready with four figures + sources, empty, unavailable, truncation note)
-- [ ] T043 [US3] Implement `frontend/src/components/door/BriefPanel.tsx` and place it between Door and chat in `frontend/src/app/c/[slug]/page.tsx` until T042 passes
-- [ ] T044 [US3] Add the DEX `Swap` template and `swapCount` to `graph-client.ts`/`brief.ts` tests and implementation (cuttable per cut order)
-- [ ] T045 [US3] Update `verify.sh` phase `brief`, including a `live` assertion that a Graph query against ≥2 marketplace sources returns within 12 s when `GRAPH_API_KEY` is set
+- [x] T035 [P] [US3] Write failing tests `backend/test/ledger-brief.test.ts` for pure `backend/src/ledger/brief.ts` (flipsWithin7d, sameCounterpartySales, medianHoldingDays, swapCount, truncated flag at 500, empty input → `empty`)
+- [x] T036 [P] [US3] Write failing tests `backend/test/ledger-graph.test.ts` for `backend/src/ledger/graph-client.ts` (seven sources, one `Trade` template with buyer/seller, one `Swap` template with `from`, parallel with 12 s budget, per-source failure recorded, all-fail → `unavailable`, late result discarded)
+- [x] T037 [US3] Implement `backend/src/ledger/brief.ts` until T035 passes
+- [x] T038 [US3] Implement `backend/src/ledger/graph-client.ts` with injected fetch and `GRAPH_API_KEY` gateway URLs until T036 passes
+- [x] T039 [P] [US3] Write failing tests `backend/test/ledger-prompt.test.ts` for `backend/src/ledger/prompt.ts` (fenced evidence block with the "evidence, not verdict" instruction; unavailable → "no ledger evidence" line) and for `bouncerTurn` accepting an optional `evidence` argument in `backend/src/bouncer.ts`
+- [x] T040 [US3] Implement `backend/src/ledger/prompt.ts` and the `evidence` argument until T039 passes
+- [x] T041 [US3] Write failing route tests in `backend/test/door-routes.test.ts`: `/begin` triggers the brief after a verified Door, persists `brief_json`/`brief_status`, `GET /brief?wallet=` returns only the caller's own brief (403 otherwise), brief included in the transcript uploaded to 0G Storage; then implement in `backend/src/server.ts`
+- [x] T042 [P] [US3] Write failing Vitest `frontend/test/brief-panel.test.tsx` for `BriefPanel` (reading, ready with four figures + sources, empty, unavailable, truncation note)
+- [x] T043 [US3] Implement `frontend/src/components/door/BriefPanel.tsx` and place it between Door and chat in `frontend/src/app/c/[slug]/page.tsx` until T042 passes
+- [x] T044 [US3] Add the DEX `Swap` template and `swapCount` to `graph-client.ts`/`brief.ts` tests and implementation (cuttable per cut order)
+- [x] T045 [US3] Update `verify.sh` phase `brief`, including a `live` assertion that a Graph query against ≥2 marketplace sources returns within 12 s when `GRAPH_API_KEY` is set
 
 **Checkpoint**: brief live in the interview and on the receipt
 
@@ -110,10 +110,10 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: open Verify on a V2 decision → three ids match chain; direct-signed decision → recovered signer equals registered signer; router path labelled.
 
-- [ ] T046 [P] [US4] Write failing tests `backend/test/verify-payload.test.ts` for `GET /api/campaigns/:slug/verify/:wallet` returning `nullifier`, `ticketId`, `attestationPath`, and the existing attestation bundle
-- [ ] T047 [US4] Extend the verify route in `backend/src/server.ts` and persist `attestation_path` at decision time until T046 passes
-- [ ] T048 [P] [US4] Write failing Vitest `frontend/test/verify-three-hash.test.tsx` for `VerifyOn0G` (three hashes, recompute match/mismatch, signer recovery result, path label `direct`/`router`)
-- [ ] T049 [US4] Extend `frontend/src/components/VerifyOn0G.tsx` until T048 passes
+- [x] T046 [P] [US4] Write failing tests `backend/test/verify-payload.test.ts` for `GET /api/campaigns/:slug/verify/:wallet` returning `nullifier`, `ticketId`, `attestationPath`, and the existing attestation bundle
+- [x] T047 [US4] Extend the verify route in `backend/src/server.ts` and persist `attestation_path` at decision time until T046 passes
+- [x] T048 [P] [US4] Write failing Vitest `frontend/test/verify-three-hash.test.tsx` for `VerifyOn0G` (three hashes, recompute match/mismatch, signer recovery result, path label `direct`/`router`)
+- [x] T049 [US4] Extend `frontend/src/components/VerifyOn0G.tsx` until T048 passes
 
 ---
 

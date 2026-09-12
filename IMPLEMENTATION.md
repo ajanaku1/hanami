@@ -63,3 +63,14 @@ number the gateway is asked for and the number the brief reports truncation agai
 
 Neither predicate was weakened: seven distinct real subgraph ids and a literal page cap are still
 required, and `npm test` still gates the phase.
+
+## 2026-09-12 — two all-zero bytes32 literals read as secrets to the release check
+
+**Plan**: `./verify.sh release` refuses any 64-hex literal in `backend/src`, `agent/src`, or
+`frontend/src`, on the grounds that a private key should never appear in source.
+
+**Found**: two pre-existing literals matched and neither is a secret — the all-zero bytes32 passed
+as an empty content hash to `mintBouncer`, and `ZERO_BYTES32` in the frontend contract helpers.
+
+**Changed**: both now use viem's `zeroHash`. The predicate is untouched and still refuses every
+64-hex literal; the code says what it means, and no behaviour changes.

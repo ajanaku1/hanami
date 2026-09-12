@@ -3,7 +3,7 @@
 // signed flow is what justifies the whole "you own your bouncer iNFT" story; an ABI mismatch
 // would silently fail in MetaMask. Inline is easier to audit at a glance.
 
-import { parseAbi, type Address, type Hex } from "viem";
+import { parseAbi, zeroHash, type Address, type Hex } from "viem";
 import { decodeEventLog } from "viem";
 
 export const registryAbi = parseAbi([
@@ -18,8 +18,7 @@ export const factoryAbi = parseAbi([
   "event CampaignCreated(address indexed campaign, address indexed owner, uint256 indexed bouncerTokenId, uint256 wlSizeCap)",
 ]);
 
-export const ZERO_BYTES32: Hex =
-  "0x0000000000000000000000000000000000000000000000000000000000000000";
+export const ZERO_BYTES32: Hex = zeroHash;
 
 export const EMPTY_BYTES: Hex = "0x";
 
