@@ -12,7 +12,12 @@
 import { PAGE_CAP, buildBrief, type LedgerBrief, type SourceRead, type Swap, type Trade } from "./brief.js";
 
 export type SourceKind = "marketplace" | "dex";
-export type LedgerSource = { name: string; subgraphId: string; kind: SourceKind };
+
+/// `walletField` is the field that names the wallet on that subgraph's `Swap` entity. The exchanges
+/// do not agree: Sushiswap publishes `from`, Uniswap v3 publishes `account`, and asking either for
+/// the other's field is rejected outright rather than returning nothing. One template, one
+/// substitution — checked against the live gateway, not assumed from the standard.
+export type LedgerSource = { name: string; subgraphId: string; kind: SourceKind; walletField?: string };
 
 /// The published subgraph ids read at runtime; they appear verbatim on the receipt.
 export const LEDGER_SOURCES: LedgerSource[] = [
@@ -21,8 +26,8 @@ export const LEDGER_SOURCES: LedgerSource[] = [
   { name: "seaport", subgraphId: "2GmLsgYGWoFoouZzKjp8biYDkfmeLTkEY3VDQyZqSJHA", kind: "marketplace" },
   { name: "x2y2", subgraphId: "3cMswgcjkpLmuF99ViQRZfCPRyCsnimqQsR9z6mY5e2i", kind: "marketplace" },
   { name: "looksrare", subgraphId: "FsT2DES8UdhfDkXCtE56h5WCDrrSXrtJiSMgNWvSdyYL", kind: "marketplace" },
-  { name: "uniswap-v3", subgraphId: "4cKy6QQMc5tpfdx8yxfYeb9TLZmgLQe44ddW1G7NwkA6", kind: "dex" },
-  { name: "sushiswap", subgraphId: "77jZ9KWeyi3CJ96zkkj5s1CojKPHt6XJKjLFzsDCd8Fd", kind: "dex" },
+  { name: "uniswap-v3", subgraphId: "4cKy6QQMc5tpfdx8yxfYeb9TLZmgLQe44ddW1G7NwkA6", kind: "dex", walletField: "account" },
+  { name: "sushiswap", subgraphId: "77jZ9KWeyi3CJ96zkkj5s1CojKPHt6XJKjLFzsDCd8Fd", kind: "dex", walletField: "from" },
 ];
 
 /// The whole read, not one request. Slower than this and the applicant waits too long (SC-006).
@@ -58,12 +63,15 @@ const TRADE_QUERY = `query WalletTrades($wallet: String!) {
   }
 }`;
 
-const SWAP_QUERY = `query WalletSwaps($wallet: String!) {
-  swaps(where: { from: $wallet }, orderBy: timestamp, orderDirection: desc, first: 500) {
-    from
+/// Only `timestamp` is selected: the wallet is already the filter, and the field naming it is not
+/// even present on every exchange's schema, so selecting it would fail the query on Uniswap v3.
+function swapQuery(walletField: string): string {
+  return `query WalletSwaps($wallet: String!) {
+  swaps(where: { ${walletField}: $wallet }, orderBy: timestamp, orderDirection: desc, first: 500) {
     timestamp
   }
 }`;
+}
 
 export type ReadLedgerRequest = {
   wallet: string;
@@ -124,7 +132,7 @@ async function querySource(
   request: ReadLedgerRequest,
   wallet: string,
 ): Promise<SourceResult> {
-  const query = source.kind === "dex" ? SWAP_QUERY : TRADE_QUERY;
+  const query = source.kind === "dex" ? swapQuery(source.walletField ?? "from") : TRADE_QUERY;
   let response: GraphResponse;
   try {
     response = await request.fetchImpl(gatewayUrl(source.subgraphId), {

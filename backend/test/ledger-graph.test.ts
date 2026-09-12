@@ -116,19 +116,26 @@ describe("readLedger", () => {
     assert.ok(body.query.includes(`first: ${PAGE_CAP}`), "the query must ask for exactly the cap the brief reports against");
   });
 
-  test("one swap template asks the exchanges for the wallet's own swaps", async () => {
+  test("one swap template, asking each exchange by the field its own schema publishes", async () => {
     const fetchImpl = recordingFetch(emptyPayload);
     await readLedger({ wallet: WALLET, apiKey: KEY, fetchImpl, readAt: T0 });
 
-    const dexIds = LEDGER_SOURCES.filter((s) => s.kind === "dex").map((s) => s.subgraphId);
-    const dexQueries = fetchImpl.sent.filter((s) => dexIds.some((id) => s.url.endsWith(id)));
-    assert.equal(dexQueries.length, 2);
-    assert.equal(new Set(dexQueries.map((q) => q.body.query)).size, 1);
-    const dexBody = dexQueries[0]?.body;
-    assert.ok(dexBody, "expected a dex query");
-    assert.match(dexBody.query, /swaps\s*\(/);
-    assert.match(dexBody.query, /from:/);
-    assert.ok(dexBody.query.includes(`first: ${PAGE_CAP}`), "the query must ask for exactly the cap the brief reports against");
+    const exchanges = LEDGER_SOURCES.filter((s) => s.kind === "dex");
+    assert.equal(exchanges.length, 2);
+
+    for (const exchange of exchanges) {
+      const sent = fetchImpl.sent.find((s) => s.url.endsWith(exchange.subgraphId));
+      assert.ok(sent, `no query sent to ${exchange.name}`);
+      // The exchanges do not agree on what the field is called, and asking one for the other's
+      // field is rejected outright — so the template is one shape with one substitution.
+      assert.ok(exchange.walletField, `${exchange.name} must declare the field naming the wallet`);
+      assert.match(sent.body.query, /swaps\s*\(/);
+      assert.match(sent.body.query, new RegExp(`where:\\s*\\{\\s*${exchange.walletField}:`));
+      assert.equal(sent.body.variables.wallet, WALLET.toLowerCase());
+      assert.ok(sent.body.query.includes(`first: ${PAGE_CAP}`), "the query must ask for exactly the cap the brief reports against");
+      // Uniswap v3 has no such field on Swap at all, so selecting it would fail the whole query.
+      assert.doesNotMatch(sent.body.query, /\n\s+(from|account)\n/, "only timestamp is selected");
+    }
   });
 
   test("the seven sources are read in parallel, not one after another", async () => {

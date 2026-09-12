@@ -98,7 +98,7 @@ pre-existing.
 |---|---|---|
 | **The Door** — a World proof-of-human before every interview, one person one attempt per campaign, with a credential fallback | World ID (Selfie Check / Orb / Device) via IDKit 4 and the v4 verify endpoint | `backend/src/door/`, `frontend/src/components/door/DoorPanel.tsx` |
 | **The agent Door and CLI** — an agent applies for a person through the same API, and the Roster says which agent | World AgentKit + AgentBook | `backend/src/door/agentkit.ts`, `agent/` |
-| **The ledger brief** — all-time marketplace and exchange history across seven subgraphs on one shared schema, given to the bouncer as evidence and never as a verdict | The Graph decentralized gateway, Messari standardized subgraphs | `backend/src/ledger/`, `frontend/src/components/door/BriefPanel.tsx` |
+| **The ledger brief** — all-time marketplace and exchange history across seven subgraphs (five currently carry indexer allocations), given to the bouncer as evidence and never as a verdict | The Graph decentralized gateway, Messari standardized subgraphs | `backend/src/ledger/`, `frontend/src/components/door/BriefPanel.tsx` |
 | **Soulbound tickets** — an approval mints an expiring, owner-revocable ticket beside the existing decision record; a demo gate consumes it | 0G Chain (`CampaignV2`, `Ticket`, `TicketGate`) | `contracts/src/{CampaignV2,Ticket,TicketGate}.sol`, `backend/src/tickets/` |
 | **Receipt, Verify and Roster** — three identifiers, the attestation path, enclave-signer recovery, and an owner roster with revoke | 0G Compute Direct broker, 0G Chain | `frontend/src/components/{door/Receipt,VerifyOn0G,roster}.tsx` |
 

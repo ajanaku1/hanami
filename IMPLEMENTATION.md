@@ -172,3 +172,43 @@ which persona runs the V2 campaign.
 
 The ordered deploy is written up in `quickstart.md`, including why the backend must go out before
 the frontend.
+
+## 2026-09-12 — the exchanges do not agree on the field naming the wallet (T038, T044)
+
+**Plan** (research decision 3): one `Swap` template, `swaps(where: {from}, first: 500)`, against both
+exchanges.
+
+**Found**, with a live gateway key: only Sushiswap publishes `from`. Uniswap v3's `Swap` has no such
+field — its wallet is `account` — and the gateway rejects the query outright rather than returning
+nothing. Introspection confirms it: `uniswap-v3.Swap` is `id, hash, nonce, logIndex, …, account,
+pool, …`. The subgraph at that id is Uniswap's own schema, not the Messari standardized one the
+research assumed. The old query also *selected* `from`, which would fail on Uniswap even with the
+right filter.
+
+**Changed**: `LedgerSource` carries a `walletField`, and the template substitutes it — still one
+template, now with one substitution. Only `timestamp` is selected, since the wallet is already the
+filter and the field naming it is not present on every schema. The unit test was rewritten to assert
+each exchange is asked by the field it declares, rather than asserting the literal `from:` it had
+encoded from the research.
+
+**Measured against the live gateway**, wallet `0xd8dA6BF2…6045`:
+
+| | before | after |
+|---|---|---|
+| whole read | 12,005 ms (the entire budget) | 912 ms |
+| swaps counted | 0 | 150 |
+| sources answering | 3 of 7 | 5 of 7 |
+
+A fresh wallet (`0x34b0Ba20…F724`) reads `empty` in 1,441 ms, which is SC-005's other half.
+
+## 2026-09-12 — two of the seven subgraphs have no indexer allocations
+
+`opensea-v1` and `opensea-v2` answer `subgraph not found: no allocations` — nobody is serving them on
+the decentralized network, so they cannot be queried at any price. The five that work are `seaport`,
+`x2y2`, `looksrare` (marketplaces) and `uniswap-v3`, `sushiswap` (exchanges), which still satisfies
+FR-010's "at least two NFT marketplaces and at least one exchange".
+
+They are left in the source list rather than deleted: they are real published ids, the brief already
+reports each source's outcome honestly, and Seaport is the settlement layer most OpenSea volume flows
+through anyway. The README no longer claims seven readable sources — it says seven, five of which
+currently carry allocations.
