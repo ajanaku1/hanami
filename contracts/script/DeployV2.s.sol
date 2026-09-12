@@ -17,7 +17,8 @@ import {TicketGate} from "../src/TicketGate.sol";
 ///
 /// TicketGate is the demo consumer and needs a campaign, so it is deployed only when
 /// DEMO_CAMPAIGN_V2 is set; the first run leaves it out and a later run wires it to the campaign
-/// the owner actually created.
+/// the owner actually created. That later run must not deploy a second factory, so an address in
+/// CAMPAIGN_FACTORY_V2 is adopted as-is and only an unset one causes a deployment.
 ///
 /// Dry run (no broadcast):
 ///   forge script script/DeployV2.s.sol --rpc-url zerog
@@ -26,10 +27,16 @@ contract DeployV2 is Script {
     function run() external returns (CampaignFactoryV2 factory, Ticket ticket, TicketGate gate) {
         address registry = vm.envAddress("BOUNCER_REGISTRY_ADDRESS");
         address demoCampaign = vm.envOr("DEMO_CAMPAIGN_V2", address(0));
+        // A factory already deployed is adopted, never replaced. The second run of this script
+        // exists to add the gate, and redeploying the factory there would orphan every campaign the
+        // first one created — they hold its Ticket, and only campaigns from that factory can mint.
+        address existingFactory = vm.envOr("CAMPAIGN_FACTORY_V2", address(0));
         uint256 pk = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
         vm.startBroadcast(pk);
-        factory = new CampaignFactoryV2(registry);
+        factory = existingFactory == address(0)
+            ? new CampaignFactoryV2(registry)
+            : CampaignFactoryV2(existingFactory);
         ticket = factory.ticket();
         if (demoCampaign != address(0)) gate = new TicketGate(demoCampaign);
         vm.stopBroadcast();

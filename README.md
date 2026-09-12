@@ -149,7 +149,7 @@ the addresses above and are not migrated, redeployed, or touched.
 |---|---|
 | CampaignFactoryV2 (mints tickets on approval) | [`0xdb03669FD2EDA044e65333D860952A9d77094b28`](https://chainscan.0g.ai/address/0xdb03669FD2EDA044e65333D860952A9d77094b28) |
 | Ticket (soulbound, time-limited, owner-revocable) | [`0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B`](https://chainscan.0g.ai/address/0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B) |
-| TicketGate (demo consumer: requires a live ticket) | _deploys with the demo campaign — see below_ |
+| TicketGate (demo consumer: requires a live ticket) | [`0x50E627F096853F5bA97Ed58685CeD9927b029F3a`](https://chainscan.0g.ai/address/0x50E627F096853F5bA97Ed58685CeD9927b029F3a) |
 
 Deployed in [`0x7cbabefbff259e400e21e776c3e6250ff33d951e99da8500ae7bbbbcfaf5774a`](https://chainscan.0g.ai/tx/0x7cbabefbff259e400e21e776c3e6250ff33d951e99da8500ae7bbbbcfaf5774a)
 (block `44174303`). The factory deploys its own `Ticket` in its constructor, so minting authority is
@@ -157,9 +157,11 @@ structural rather than a wiring step: `Ticket.factory` is immutable and only cam
 created are ever registered as minters. Confirmed on chain — `factory.ticket()` and
 `ticket.factory()` point at each other, and `factory.registry()` is the untouched V1 registry above.
 
-`TicketGate` needs a campaign to gate, so it deploys on a second run of the same script once
-`DEMO_CAMPAIGN_V2` is set. Set the three addresses as `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS` and
-`TICKET_GATE_ADDRESS` in the operator environment (`backend/.env.example` documents all three).
+`TicketGate` gates the V2 demo campaign `0xe80b1263Ebc884A0b79b18c1C8C79D9f4012a138`, created by
+bouncer #22 while its original V1 campaign keeps running — the coexistence the additive design is
+for. Set the three addresses as `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS` and `TICKET_GATE_ADDRESS` in
+the operator environment (`backend/.env.example` documents all three). Live evidence, with the
+on-chain reads behind each claim, is in [`docs/ethonline-evidence.md`](docs/ethonline-evidence.md).
 
 ### Live certified bouncers
 

@@ -212,3 +212,27 @@ They are left in the source list rather than deleted: they are real published id
 reports each source's outcome honestly, and Seaport is the settlement layer most OpenSea volume flows
 through anyway. The README no longer claims seven readable sources — it says seven, five of which
 currently carry allocations.
+
+## 2026-09-12 — the V2 demo campaign is live, and one deploy was wasted getting there (T069)
+
+**Built**: `slow-collectors-v2`, campaign `0xe80b1263Ebc884A0b79b18c1C8C79D9f4012a138`, created by
+bouncer #22 on the V2 factory while that bouncer's original V1 campaign keeps running untouched.
+Certified under its own Bouncer Safety Report (`6e9fc59d…`, passed) reusing the V1 campaign's exact
+persona and lorebook, read back from 0G Storage — new text could have failed the gate and wasted the
+run. Indexed with `contract_version = 2`, `required_credential = orb`, and `ticket_expiry` equal to
+`close_at` because it was created with `ticketExpiry_ = 0`, which is the same default the settings
+route applies. `TicketGate` `0x50E627F096853F5bA97Ed58685CeD9927b029F3a` gates it.
+
+**Mistake, recorded because the chain records it anyway**: the second run of `DeployV2.s.sol`,
+intended only to add the gate, deployed a *second* `CampaignFactoryV2`
+(`0xCCE9bD09e73999AF1B01640141B47DB6BeeE8f31`) and a second `Ticket`
+(`0x8f920e3FCBF20d94Cc7240339672E9Eb1637D5d6`). The script deployed the factory unconditionally and
+that was not noticed before broadcasting. Both are orphans — no campaign was ever created against
+them, `isMinter` is false for the demo campaign on the orphan Ticket, and the canonical pair in the
+README is untouched. Cost was about 0.012 OG.
+
+**Fixed so it cannot repeat**: the script now adopts an address in `CAMPAIGN_FACTORY_V2` as-is and
+only deploys a factory when that is unset. Redeploying it on a later run would orphan every campaign
+the first factory created, since a campaign can only mint on the Ticket its own factory owns.
+Confirmed by dry run: with the env set, the factory and ticket resolve to the deployed pair and only
+the gate is new.
