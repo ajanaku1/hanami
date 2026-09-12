@@ -52,6 +52,36 @@ services:
         value: "0x764883319e51e46F683aB54D93F26bcBb74A7030"
       - key: CAMPAIGN_FACTORY_ADDRESS
         value: "0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4"
+      # ETHOnline 2026 (feature 002). The V2 factory deploys beside the V1 pair above; V1 campaigns
+      # keep running against the addresses they were created with and are never migrated.
+      - key: CAMPAIGN_FACTORY_V2
+        value: "0xdb03669FD2EDA044e65333D860952A9d77094b28"
+      - key: TICKET_ADDRESS
+        value: "0x51Bf4E0376cb62Fc2875f6b200631D1C38F7463B"
+      # Deployed by a second run of DeployV2.s.sol once a V2 demo campaign exists.
+      - key: TICKET_GATE_ADDRESS
+        sync: false
+      # The Door. WORLD_RP_SIGNING_KEY is what IDKit needs to open at all: without it
+      # /door/context answers 503 and the panel says the Door is unavailable, rather than handing
+      # the browser a request context World would refuse.
+      - key: WORLD_APP_ID
+        sync: false
+      - key: WORLD_RP_ID
+        sync: false
+      - key: WORLD_ACTION
+        value: hanami-door
+      - key: WORLD_RP_SIGNING_KEY
+        sync: false
+      # World AgentKit: AgentBook lives on World Chain (default public RPC when unset), and
+      # PUBLIC_API_URL is the origin an agent signs, so a signature cannot be replayed elsewhere.
+      - key: WORLD_CHAIN_RPC_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        value: https://hanami-backend-ugak.onrender.com
+      # The Graph decentralized gateway for the ledger brief. Without it the brief is `unavailable`,
+      # which every surface already knows how to say, and no interview is blocked.
+      - key: GRAPH_API_KEY
+        sync: false
       - key: ADMIN_SECRET
         sync: false
       # Turso (libSQL) — the index DB lives off-disk so it survives Render restarts.

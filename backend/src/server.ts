@@ -127,6 +127,19 @@ async function briefFor(slug: string, wallet: string): Promise<LedgerBrief | nul
     return null;
   }
 }
+// An agent proves personhood through AgentKit rather than IDKit, and its human id lands in the same
+// proofs table. It runs before the guard, so a registered agent is already through by the time the
+// guard looks; a browser request carries no agent header and passes straight by.
+const agentDoor = createAgentDoor({
+  db,
+  now: doorNow,
+  resourceUri: process.env.PUBLIC_API_URL ?? "https://hanami-backend-ugak.onrender.com",
+  verifyHeader: createHeaderVerifier(process.env.WORLD_CHAIN_RPC_URL),
+  lookupHuman: createAgentBookLookup(process.env.WORLD_CHAIN_RPC_URL),
+});
+
+app.use("/api/campaigns/:slug/begin", agentDoor);
+app.use("/api/campaigns/:slug/turns", agentDoor);
 app.use("/api/campaigns/:slug/begin", doorGuard);
 app.use("/api/campaigns/:slug/turns", doorGuard);
 

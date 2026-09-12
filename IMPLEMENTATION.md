@@ -131,3 +131,26 @@ is why the first `live` check stays red.
 `[^0-9x]*` between the contract name and the address, so the word "expiring" ended the match at its
 own `x` and the Ticket address could not be read. The row now says "time-limited". The predicate is
 unchanged — it was the prose that had to be parseable.
+
+## 2026-09-12 — the agent Door was written and tested but never mounted (T060)
+
+**Found** while preparing the deploy: `server.ts` imported `createAgentDoor` and never called it.
+An earlier edit inserted the import but its second half — the `app.use` lines — silently failed to
+match its anchor, and nothing caught it. `tsc` passes on an unused import, and the route tests mount
+the middleware themselves in a test app, so the whole suite stayed green with the feature inert in
+production. Every other module from this feature was checked and is wired.
+
+**Fixed**: the agent Door is mounted on `/begin` and `/turns` ahead of the browser guard.
+`./verify.sh agent` now asserts the mount itself, not just that the module exists — a test that
+builds its own app can never tell you the real one is missing a line.
+
+## 2026-09-12 — nothing new is deployed yet, and that gates the rest of `live`
+
+The deployed backend still answers without `contract_version`, so it predates this feature entirely.
+Two things follow. Every live campaign is V1, so no ticket has ever been minted. And a frontend
+deploy must not go out ahead of the backend: the new campaign page asks for `/door/context`, which
+the old backend does not serve, so the Door would report itself unavailable and no one could apply.
+
+`render.yaml` has `autoDeploy: false` (a redeploy wipes the ephemeral disk), so the backend is a
+manual deploy from the Render dashboard — an operator action. The file now declares every key the
+new code reads, with real values for the two V2 addresses and `sync: false` for everything secret.

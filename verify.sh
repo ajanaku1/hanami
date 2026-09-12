@@ -153,6 +153,8 @@ checksh agent "AgentKit door path is tested on the backend" '
   test -f backend/src/door/agentkit.ts && test -f backend/test/door-agentkit.test.ts &&
   grep -q "createAgentkitHooks" backend/src/door/agentkit.ts &&
   grep -q "503" backend/src/door/agentkit.ts &&
+  grep -q "createAgentDoor" backend/src/server.ts &&
+  grep -Eq "app.use\(.\/api\/campaigns\/:slug\/(begin|turns)., agentDoor\)" backend/src/server.ts &&
   cd backend && npm test
 '
 checksh agent "agent CLI workspace tests pass and README documents register/status/apply" '
