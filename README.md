@@ -79,7 +79,7 @@ Hanami existed before this event: an AI bouncer that interviews whitelist applic
 This section separates that from the work done during ETHOnline 2026, by commit range, so a judge
 does not have to take either on trust.
 
-**In-window work: `2949916..3363ae5`** — the feature branch for
+**In-window work: `2949916..819939e`** — the feature branch for
 [`specs/002-human-door-tickets`](specs/002-human-door-tickets). Everything before `2949916` is
 pre-existing.
 
