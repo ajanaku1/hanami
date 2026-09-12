@@ -47,7 +47,7 @@ export function MarketCard({ c }: { c: Campaign }) {
   const rejected = c.rejected_count ?? 0;
   // Approvals only ever go up; a live ticket can expire or be revoked, so the two are different
   // numbers and a campaign that issues tickets shows both.
-  const liveTickets = c.live_ticket_count;
+  const liveTicketCount = c.live_ticket_count;
   const fillPct = cap > 0 ? Math.min(100, Math.round((approved / cap) * 100)) : 0;
 
   return (
@@ -115,8 +115,8 @@ export function MarketCard({ c }: { c: Campaign }) {
         <Stat k="approved" v={approved.toString()} />
         <Stat k="rejected" v={rejected.toString()} />
         <Stat k="cap" v={cap.toString()} />
-        {liveTickets === null || liveTickets === undefined ? null : (
-          <Stat k="live tickets" v={liveTickets.toString()} />
+        {liveTicketCount === null || liveTicketCount === undefined ? null : (
+          <Stat k="live tickets" v={liveTicketCount.toString()} />
         )}
         <Stat k="dest chain" v={CHAIN_LABEL[c.target_chain] ?? c.target_chain} />
       </dl>

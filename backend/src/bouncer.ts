@@ -9,25 +9,53 @@ const MAX_TURNS = 6;
 export type Decision = { kind: "approve" | "reject"; reasoning: string };
 export type BouncerTurn = { reply: string; trace: Trace; decision: Decision | null; attestation: Attestation };
 
+/// Which path attested a decision. `direct` means the enclave signed the reply itself and anyone
+/// can recover that signature offline; `router` means the Router verified the TEE for us and we are
+/// repeating what it said. Every surface that reports a decision reports this.
+export type AttestationPath = "direct" | "router";
+
+export function attestationPathOf(attestation: Attestation): AttestationPath {
+  return attestation.kind === "tee-signature" ? "direct" : "router";
+}
+
+/// The two ways to run an inference, injected so the fallback can be tested without a funded
+/// ledger or a live Router.
+export type InferDeps = {
+  directEnabled: () => boolean;
+  chatDirect: (messages: ChatTurn[]) => Promise<{ content: string; attestation: Attestation }>;
+  chatRouter: (messages: ChatTurn[]) => Promise<{ content: string; trace: Trace }>;
+};
+
+const LIVE_INFER: InferDeps = {
+  directEnabled,
+  chatDirect: (messages) => chatDirectSigned(messages),
+  chatRouter: (messages) => chat(messages),
+};
+
 // Run one inference. When the turn could carry a verdict (`allowDirect`) and the Direct broker is
 // configured, route it through the TEE-signed path so the reply the applicant sees — and the
 // decision recorded on chain — carries a provider signature anyone can re-verify offline. Any Direct
-// failure (unfunded ledger, provider down) transparently falls back to the Router path.
-async function infer(
+// failure (unfunded ledger, provider down) transparently falls back to the Router path: an applicant
+// is never made to wait on a broker, and the receipt says which path it actually took.
+export async function inferTurn(
   messages: ChatTurn[],
   allowDirect: boolean,
-): Promise<{ content: string; trace: Trace; attestation: Attestation }> {
-  if (allowDirect && directEnabled()) {
+  deps: InferDeps = LIVE_INFER,
+): Promise<{ reply: string; trace: Trace; attestation: Attestation }> {
+  if (allowDirect && deps.directEnabled()) {
     try {
-      const { content, attestation } = await chatDirectSigned(messages);
-      const trace: Trace = { request_id: attestation.chatId, provider: attestation.provider, tee_verified: true };
-      return { content, trace, attestation };
+      const { content, attestation } = await deps.chatDirect(messages);
+      const trace: Trace =
+        attestation.kind === "tee-signature"
+          ? { request_id: attestation.chatId, provider: attestation.provider, tee_verified: true }
+          : attestation.trace;
+      return { reply: content, trace, attestation };
     } catch (err) {
       console.error("direct signed inference failed, falling back to Router:", (err as Error).message);
     }
   }
-  const { content, trace } = await chat(messages);
-  return { content, trace, attestation: { kind: "router", trace } };
+  const { content, trace } = await deps.chatRouter(messages);
+  return { reply: content, trace, attestation: { kind: "router", trace } };
 }
 
 export type BouncerInput = {
@@ -139,9 +167,9 @@ export async function bouncerTurn(input: BouncerInput): Promise<BouncerTurn> {
 
   const messages = buildTurnMessages(input);
 
-  const { content, trace, attestation } = await infer(messages, mayDecide);
-  const decision = decisionForTurn(content, turns, mustDecide);
-  return { reply: content, trace, decision, attestation };
+  const { reply, trace, attestation } = await inferTurn(messages, mayDecide);
+  const decision = decisionForTurn(reply, turns, mustDecide);
+  return { reply, trace, decision, attestation };
 }
 
 /// Opening turn: the bouncer speaks first. Used when an applicant connects but hasn't typed yet.

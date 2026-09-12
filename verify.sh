@@ -218,6 +218,15 @@ checksh live "deployed frontend serves the Door and the backend refuses an inter
     "https://hanami-backend-ugak.onrender.com/api/campaigns/$slug/begin") &&
   test "$code" = "403"
 '
+checksh live "the enclave-signed path is on and a decision made with it reports direct" '
+  test -f docs/ethonline-evidence.md &&
+  slug=$(grep -m1 "Direct-path campaign:" docs/ethonline-evidence.md | grep -Eo "[a-z0-9-]+$") &&
+  wallet=$(grep -m1 "Direct-path wallet:" docs/ethonline-evidence.md | grep -Eo "0x[0-9a-fA-F]{40}") &&
+  test -n "$slug" && test -n "$wallet" &&
+  body=$(curl --max-time 30 -fsS "https://hanami-backend-ugak.onrender.com/api/campaigns/$slug/verify/$wallet") &&
+  printf "%s" "$body" | grep -Eq "\\"attestationPath\\":\\"direct\\"" &&
+  printf "%s" "$body" | grep -Eq "\\"kind\\":\\"tee-signature\\""
+'
 checksh live "The Graph gateway answers the marketplace template from at least two sources within 12s" '
   test -n "${GRAPH_API_KEY:-}" &&
   ok=0 &&

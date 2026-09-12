@@ -27,6 +27,27 @@ Validation scenarios (see `contracts/door-tickets-api.openapi.yaml`):
 4. Interview to a decision → response carries `receipt` with `nullifier`, `attestationPath`, and `ticket.id`; `DecisionRecordedV2` visible on Chainscan.
 5. `POST /tickets/{id}/revoke` prepared tx, signed by owner → `hasLiveTicket` false; `GET /roster` shows `revoked`.
 
+## Direct broker (operator, enclave-signed decisions)
+The decision turn is signed inside the provider's enclave only when the broker is configured and its
+ledger is funded; otherwise every path falls back to the Router and says so on the receipt.
+
+```bash
+cd backend
+npm run og:ledger:status                        # shows the Compute ledger balance
+# fund 3 OG to that ledger from the deployer wallet, then set in backend/.env (operator, never the agent):
+#   OG_DIRECT_ENABLED=true
+#   OG_DIRECT_PROVIDER=0x…      # a provider with a registered teeSignerAddress
+npm run dev
+```
+Then interview one applicant through to a verdict and open Verify on 0G on the receipt. Expected:
+path reads `Enclave signature (direct)`, the recovered address equals the provider's on-chain TEE
+signer, and `GET /api/campaigns/<slug>/verify/<wallet>` answers `"attestationPath":"direct"` with
+`"kind":"tee-signature"`. Record that campaign and wallet in `docs/ethonline-evidence.md` as
+`Direct-path campaign:` and `Direct-path wallet:`, which is what `./verify.sh live` reads.
+
+With the ledger unfunded the same walk must still finish: the receipt reads `Router trace (router)`
+and nothing else changes. That fallback is the behaviour under test, not a failure.
+
 ## Frontend
 ```bash
 cd frontend && npm test && npm run build && npm run dev

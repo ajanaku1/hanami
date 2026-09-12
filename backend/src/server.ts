@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db, get, all, run, initDb } from "./db/index.js";
 import { uploadText, uploadBlob, readByRoot } from "./og-storage.js";
 import { generatePortrait } from "./og-image.js";
-import { bouncerTurn, bouncerGreeting } from "./bouncer.js";
+import { attestationPathOf, bouncerTurn, bouncerGreeting } from "./bouncer.js";
 import { recordDecision, recordDecisionRouted, liveTicketId, ticketStatuses, incrementRep, finalizeMerkleRoot, readBouncerOwner, readIsAuthorized, BOUNCER_REGISTRY, CAMPAIGN_FACTORY, CAMPAIGN_FACTORY_V2 } from "./og-chain.js";
 import { recordApplicantDecision, retryTicket, type DecideDeps } from "./tickets/decide.js";
 import { createRosterRoutes } from "./tickets/roster.js";
@@ -589,7 +589,7 @@ app.post("/api/campaigns/:slug/turns", async (c) => {
     approve: turn.decision.kind === "approve",
     reasoning: turn.decision.reasoning || turn.reply,
     attestation: turn.attestation,
-    attestationPath: turn.attestation.kind === "tee-signature" ? "direct" : "router",
+    attestationPath: attestationPathOf(turn.attestation),
   });
   const recorded = { txHash: receipt.txHash, attestationHash: receipt.attestationHash };
 

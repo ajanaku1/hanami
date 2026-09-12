@@ -123,20 +123,20 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 
 **Independent Test**: create with settings → Door enforces credential, close refuses late applicants, tickets carry expiry; card shows count.
 
-- [ ] T050 [P] [US5] Write failing tests `backend/test/campaign-settings.test.ts` for `POST /api/campaigns/:slug/settings` (owner signed-message auth as existing routes, 422 on past close/expiry, `ticket_expiry` defaults to `close_at`) and for `/api/campaigns/prepare` accepting `requiredCredential`, `closeAt`, `ticketExpiry` and creating V2 campaigns via `CampaignFactoryV2`
-- [ ] T051 [US5] Implement settings route and prepare/index changes in `backend/src/server.ts` and `backend/src/og-chain.ts` until T050 passes
-- [ ] T052 [P] [US5] Write failing Vitest `frontend/test/create-settings.test.tsx` for the new Create fields (credential radio with one-line explanations, close date-time required, expiry default/override, past-date validation)
-- [ ] T053 [US5] Implement the fields in `frontend/src/app/create/page.tsx` (Campaign identity group) until T052 passes; readiness panel lists the V2 factory transaction
-- [ ] T054 [US5] Add the settings panel to `frontend/src/app/c/[slug]/admin/page.tsx` for existing campaigns (enable Door, set close, set expiry) with tests appended to `frontend/test/roster.test.tsx`
-- [ ] T055 [P] [US5] Add live ticket count to `frontend/src/components/MarketCard.tsx` and `BouncerCard.tsx` with tests appended to `frontend/test/market-card.test.tsx` and `frontend/test/bouncer-card.test.tsx`; expose `liveTicketCount` from `GET /api/campaigns`
+- [x] T050 [P] [US5] Write failing tests `backend/test/campaign-settings.test.ts` for `POST /api/campaigns/:slug/settings` (owner signed-message auth as existing routes, 422 on past close/expiry, `ticket_expiry` defaults to `close_at`) and for `/api/campaigns/prepare` accepting `requiredCredential`, `closeAt`, `ticketExpiry` and creating V2 campaigns via `CampaignFactoryV2`
+- [x] T051 [US5] Implement settings route and prepare/index changes in `backend/src/server.ts` and `backend/src/og-chain.ts` until T050 passes
+- [x] T052 [P] [US5] Write failing Vitest `frontend/test/create-settings.test.tsx` for the new Create fields (credential radio with one-line explanations, close date-time required, expiry default/override, past-date validation)
+- [x] T053 [US5] Implement the fields in `frontend/src/app/create/page.tsx` (Campaign identity group) until T052 passes; readiness panel lists the V2 factory transaction
+- [x] T054 [US5] Add the settings panel to `frontend/src/app/c/[slug]/admin/page.tsx` for existing campaigns (enable Door, set close, set expiry) with tests appended to `frontend/test/roster.test.tsx`
+- [x] T055 [P] [US5] Add live ticket count to `frontend/src/components/MarketCard.tsx` and `BouncerCard.tsx` with tests appended to `frontend/test/market-card.test.tsx` and `frontend/test/bouncer-card.test.tsx`; expose `liveTicketCount` from `GET /api/campaigns`
 
 ---
 
 ## Phase 8: Direct broker attestation (Priority: P2, first to cut)
 
-- [ ] T056 Write failing test `backend/test/attestation-path.test.ts` that the decision turn records `attestation_path = 'direct'` when `directEnabled()` and the signed path succeeds, `'router'` on fallback, and that the receipt/verify payload carry it
-- [ ] T057 Surface the path from `backend/src/og-compute-direct.ts` / `backend/src/bouncer.ts` into the decision branch until T056 passes (no change to signing logic)
-- [ ] T058 Operator step documented in `specs/002-human-door-tickets/quickstart.md`: fund 3 OG ledger, set `OG_DIRECT_ENABLED=true` and `OG_DIRECT_PROVIDER`; add `verify.sh live` assertion that a fresh decision reports `direct`
+- [x] T056 Write failing test `backend/test/attestation-path.test.ts` that the decision turn records `attestation_path = 'direct'` when `directEnabled()` and the signed path succeeds, `'router'` on fallback, and that the receipt/verify payload carry it
+- [x] T057 Surface the path from `backend/src/og-compute-direct.ts` / `backend/src/bouncer.ts` into the decision branch until T056 passes (no change to signing logic)
+- [x] T058 Operator step documented in `specs/002-human-door-tickets/quickstart.md`: fund 3 OG ledger, set `OG_DIRECT_ENABLED=true` and `OG_DIRECT_PROVIDER`; add `verify.sh live` assertion that a fresh decision reports `direct`
 
 ---
 
