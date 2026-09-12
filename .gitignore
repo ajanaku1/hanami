@@ -60,3 +60,7 @@ design-wave3.md
 Goal-wave3.md
 prompt-wave3.md
 plan-wave3.md
+
+# Encrypted wallet vault backup. Never belongs in the repo — the salt and ciphertext together
+# make an offline brute-force possible, and it has nothing to do with this project.
+docs/chit-fleet-backup.json
