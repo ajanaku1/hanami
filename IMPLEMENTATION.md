@@ -74,3 +74,23 @@ as an empty content hash to `mintBouncer`, and `ZERO_BYTES32` in the frontend co
 
 **Changed**: both now use viem's `zeroHash`. The predicate is untouched and still refuses every
 64-hex literal; the code says what it means, and no behaviour changes.
+
+## 2026-09-12 — the roster's signature never matched the one Admin asks for (T054)
+
+**Found**: `useRoster` sent the signature the owner produced to unlock Admin (`Hanami: view <slug>
+admin at <nonce>`) to the roster route, which verified `roster <slug>`, and to revoke, which
+verified `revoke <id> on <slug>`. Both would have answered 401 against the deployed backend; the
+module tests passed because each side signed its own string.
+
+**Changed**: the roster read now authorizes with the message the existing admin route uses, which
+is what `door-tickets-api.openapi.yaml` asks for ("signed message auth as existing admin routes"),
+so one unlock signature covers reading the owner's screens. Revoke and the new settings save are
+writes that name what they change, so each signs its own action at the moment of the action.
+
+## 2026-09-12 — the gallery's live ticket count is an upper bound (T055)
+
+A revocation is the owner's own transaction; the backend prepares it and never learns whether it
+landed. So `live_ticket_count` on the campaign list counts tickets issued by a V2 campaign that
+have not reached its expiry, and a ticket revoked on chain is still counted there. The Roster reads
+every ticket from the chain and is the authority on any single one. Making the gallery authoritative
+would mean a chain read per campaign on a public, uncached page.

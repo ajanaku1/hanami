@@ -12,9 +12,11 @@ type Props = {
   imageUri?: string | null;
   className?: string;
   forceFlip?: boolean;
+  /// Tickets live on chain right now. Omitted for a campaign that issues none.
+  liveTicketCount?: number;
 };
 
-export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, className, forceFlip = false }: Props) {
+export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, className, forceFlip = false, liveTicketCount }: Props) {
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const flipped = forceFlip || hovered || clicked;
@@ -56,7 +58,15 @@ export function BouncerCard({ tokenId, name, subtitle, sealRoot, imageUri, class
           </div>
           <div className="flex justify-between items-baseline px-4 py-3 border-t border-[var(--hanami-rule)]">
             <span className="font-serif text-[20px] font-medium">{name}</span>
-            {subtitle && <span className="text-[11px] text-[var(--hanami-ink-soft)] tracking-[0.12em] uppercase">{subtitle}</span>}
+            {/* Tickets live on chain right now, which is not the same number as approvals: one can
+                expire or be revoked, the other only ever grows. */}
+            {liveTicketCount === undefined ? (
+              subtitle && <span className="text-[11px] text-[var(--hanami-ink-soft)] tracking-[0.12em] uppercase">{subtitle}</span>
+            ) : (
+              <span className="text-[11px] text-[var(--hanami-ink-soft)] tracking-[0.12em] uppercase">
+                {liveTicketCount} live ticket{liveTicketCount === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
         </div>
         {/* BACK — seal */}

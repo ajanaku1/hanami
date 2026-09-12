@@ -135,7 +135,7 @@ describe("roster routes", () => {
 
   test("gives the owner the roster", async () => {
     const { server } = await app();
-    const { caller, nonce, signature } = await auth(owner, "roster mei-chan");
+    const { caller, nonce, signature } = await auth(owner, "view mei-chan admin");
 
     const response = await server.request(
       `/api/campaigns/mei-chan/roster?caller=${caller}&nonce=${nonce}&signature=${signature}`,
@@ -147,7 +147,7 @@ describe("roster routes", () => {
 
   test("refuses anyone who is not the owner", async () => {
     const { server } = await app();
-    const { caller, nonce, signature } = await auth(stranger, "roster mei-chan");
+    const { caller, nonce, signature } = await auth(stranger, "view mei-chan admin");
 
     const response = await server.request(
       `/api/campaigns/mei-chan/roster?caller=${caller}&nonce=${nonce}&signature=${signature}`,
@@ -192,7 +192,7 @@ describe("roster routes", () => {
 
   test("refuses a stale nonce", async () => {
     const { server } = await app();
-    const { caller, nonce, signature } = await auth(owner, "roster mei-chan", Date.now() - 20 * 60 * 1000);
+    const { caller, nonce, signature } = await auth(owner, "view mei-chan admin", Date.now() - 20 * 60 * 1000);
 
     const response = await server.request(
       `/api/campaigns/mei-chan/roster?caller=${caller}&nonce=${nonce}&signature=${signature}`,

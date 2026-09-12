@@ -333,7 +333,15 @@ const campaignWithCountsSql = `
   SELECT c.*,
     (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision = 'approved') AS approved_count,
     (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision = 'rejected') AS rejected_count,
-    (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision IS NULL) AS pending_count
+    (SELECT COUNT(*) FROM applicants WHERE campaign_slug = c.slug AND decision IS NULL) AS pending_count,
+    -- Tickets issued by this campaign that have not reached its expiry. A revocation is the owner's
+    -- transaction and the backend never learns whether it landed, so this is an upper bound and the
+    -- Roster — which reads each ticket from the chain — is the authority on any single one.
+    CASE WHEN c.contract_version >= 2 THEN (
+      SELECT COUNT(*) FROM applicants
+      WHERE campaign_slug = c.slug AND ticket_id IS NOT NULL
+        AND (c.ticket_expiry IS NULL OR c.ticket_expiry > unixepoch())
+    ) END AS live_ticket_count
   FROM campaigns c
 `;
 

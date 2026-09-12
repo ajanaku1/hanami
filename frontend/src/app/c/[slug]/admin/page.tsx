@@ -8,6 +8,7 @@ import { BouncerCard } from "@/components/BouncerCard";
 import { VisibilityToggle } from "@/components/VisibilityToggle";
 import { MerkleExport } from "@/components/MerkleExport";
 import { RosterTable } from "@/components/roster/RosterTable";
+import { CampaignSettingsPanel, type CampaignSettings, type SaveState } from "@/components/roster/CampaignSettingsPanel";
 import { useRoster } from "@/components/roster/useRoster";
 import { VerifyOn0G } from "@/components/VerifyOn0G";
 import { ShareBar } from "@/components/ShareBar";
@@ -32,6 +33,29 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
   const [verifyWallet, setVerifyWallet] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const roster = useRoster(slug, auth);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [openedAt] = useState(() => Math.floor(Date.now() / 1000));
+
+  /// Saving settings is the owner's own write, so it carries its own signature rather than the one
+  /// that unlocked Admin.
+  const saveSettings = useCallback(
+    async (next: CampaignSettings) => {
+      if (!address) return;
+      setSaveState("saving");
+      setSaveError(undefined);
+      try {
+        const nonce = Date.now();
+        const sig = await signMessageAsync({ message: `Hanami: settings ${slug} at ${nonce}` });
+        await api.saveSettings(slug, { ...next, caller: address, nonce, sig });
+        setSaveState("saved");
+      } catch (caught) {
+        setSaveState("error");
+        setSaveError(friendlyError(caught));
+      }
+    },
+    [address, signMessageAsync, slug],
+  );
 
   const isPrivate = meta?.visibility === "private";
   const isOwner = Boolean(isConnected && address && meta && address.toLowerCase() === meta.owner_address.toLowerCase());
@@ -113,7 +137,14 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
     <Shell>
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
         <aside className="lg:sticky lg:top-12 lg:self-start">
-          <BouncerCard tokenId={campaign.bouncer_token_id} name={campaign.name.split(" ")[0]} subtitle={`token №${campaign.bouncer_token_id}`} sealRoot={campaign.persona_uri} imageUri={campaign.image_uri} />
+          <BouncerCard
+            tokenId={campaign.bouncer_token_id}
+            name={campaign.name.split(" ")[0]}
+            subtitle={`token №${campaign.bouncer_token_id}`}
+            sealRoot={campaign.persona_uri}
+            imageUri={campaign.image_uri}
+            liveTicketCount={campaign.live_ticket_count ?? undefined}
+          />
           <div className="mt-5">
             <VisibilityToggle slug={campaign.slug} ownerAddress={campaign.owner_address} current={campaign.visibility} safety={campaign.safety} />
           </div>
@@ -231,6 +262,20 @@ export default function AdminPage({ params }: { params: Promise<Params> }) {
               <VerifyOn0G slug={campaign.slug} wallet={verifyWallet} />
             </div>
           )}
+
+          <hr className="my-16 border-[var(--hanami-rule)]" />
+
+          <CampaignSettingsPanel
+            settings={{
+              requiredCredential: campaign.required_credential ?? "orb",
+              closeAt: campaign.close_at,
+              ticketExpiry: campaign.ticket_expiry,
+            }}
+            now={openedAt}
+            state={saveState}
+            error={saveError}
+            onSave={saveSettings}
+          />
 
           <hr className="my-16 border-[var(--hanami-rule)]" />
 

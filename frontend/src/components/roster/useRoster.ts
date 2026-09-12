@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSendTransaction } from "wagmi";
+import { useSendTransaction, useSignMessage } from "wagmi";
 import { api, type AdminAuth, type RosterRow } from "@/lib/api";
 import type { RevokeState } from "./RevokeButton";
 
@@ -16,6 +16,7 @@ export function useRoster(slug: string, auth: AdminAuth | null) {
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<{ ticketId: string; state: RevokeState; error?: string }>();
   const { sendTransactionAsync } = useSendTransaction();
+  const { signMessageAsync } = useSignMessage();
 
   const load = useCallback(async () => {
     if (!auth) return;
@@ -48,7 +49,11 @@ export function useRoster(slug: string, auth: AdminAuth | null) {
       if (!auth) return;
       setRevoking({ ticketId, state: "pending" });
       try {
-        const prepared = await api.prepareRevoke(slug, ticketId, auth);
+        // Revoking names a ticket, so it is authorized by its own signature rather than the one
+        // that unlocked Admin — the owner is signing this revoke, not a session.
+        const nonce = Date.now();
+        const sig = await signMessageAsync({ message: `Hanami: revoke ${ticketId} on ${slug} at ${nonce}` });
+        const prepared = await api.prepareRevoke(slug, ticketId, { caller: auth.caller, nonce, sig });
         await sendTransactionAsync({
           to: prepared.to as `0x${string}`,
           data: prepared.data as `0x${string}`,
@@ -59,7 +64,7 @@ export function useRoster(slug: string, auth: AdminAuth | null) {
         setRevoking({ ticketId, state: "error", error: (caught as Error).message });
       }
     },
-    [slug, auth, sendTransactionAsync, load],
+    [slug, auth, sendTransactionAsync, signMessageAsync, load],
   );
 
   return { rows, error, revoke, revoking, reload: load };

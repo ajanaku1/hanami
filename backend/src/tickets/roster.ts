@@ -131,7 +131,9 @@ export function createRosterRoutes(deps: RosterRouteDeps): Hono {
 
   app.get("/:slug/roster", async (c) => {
     const slug = c.req.param("slug");
-    const owned = await authorizeOwner(deps.db, slug, `roster ${slug}`, {
+    // Reading the roster is part of opening Admin, and the openapi contract says this route
+    // authorizes "as existing admin routes" — the same message, so the owner signs once to read.
+    const owned = await authorizeOwner(deps.db, slug, `view ${slug} admin`, {
       caller: c.req.query("caller"),
       nonce: Number(c.req.query("nonce")) || undefined,
       signature: c.req.query("signature"),

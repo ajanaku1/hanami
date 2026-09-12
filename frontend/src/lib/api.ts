@@ -146,6 +146,12 @@ export type Campaign = {
   rejected_count: number;
   pending_count: number;
   publication_policy: "legacy-public" | "certification-required";
+  required_credential: "selfie" | "orb" | "device" | null;
+  close_at: number | null;
+  ticket_expiry: number | null;
+  contract_version: number | null;
+  /// Tickets live on chain right now. Null for a campaign that issues none.
+  live_ticket_count: number | null;
   safety: CampaignSafety;
 };
 
@@ -330,6 +336,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ caller: auth.caller, nonce: auth.nonce, signature: auth.sig }),
     }),
+  /// The owner's Door and ticket settings for a campaign that already exists. Authorized by its
+  /// own signature: this is a write, not part of opening Admin.
+  saveSettings: (slug: string, body: CampaignSettingsBody & AdminAuth) =>
+    call<{ requiredCredential: string; closeAt: number | null; ticketExpiry: number | null }>(
+      `/api/campaigns/${slug}/settings`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          caller: body.caller,
+          nonce: body.nonce,
+          signature: body.sig,
+          requiredCredential: body.requiredCredential,
+          closeAt: body.closeAt,
+          ticketExpiry: body.ticketExpiry,
+        }),
+      },
+    ),
   retryTicket: (slug: string, walletAddress: string) =>
     call<{ ticket: TicketBlock | null; ticketState: TicketState }>(`/api/campaigns/${slug}/tickets/retry`, {
       method: "POST",
