@@ -27,6 +27,13 @@ import { Button } from "@/components/ui/Button";
 import { AsyncNotice } from "@/components/ui/AsyncNotice";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { Field } from "@/components/ui/Field";
+import { CampaignSettingsFields } from "@/components/create/CampaignSettingsFields";
+import {
+  settingsErrors,
+  toSettingsPayload,
+  unixToLocal,
+  type CampaignSettingsDraft,
+} from "@/lib/campaign-settings";
 import {
   assertReceiptConfirmed,
   CREATE_STAGES,
@@ -60,6 +67,15 @@ export default function CreatePage() {
   const [slug, setSlug] = useState("");
   const [targetChain, setTargetChain] = useState<typeof CHAINS[number]["value"]>("base");
   const [wlSize, setWlSize] = useState(100);
+  // Read once when the form opens rather than on every render: the field validation only needs a
+  // reference point, and the submit path re-reads the clock before anything is signed.
+  const [openedAt] = useState(() => Math.floor(Date.now() / 1000));
+  // A week from now is the shortest campaign anyone runs by accident; the owner changes it in place.
+  const [settings, setSettings] = useState<CampaignSettingsDraft>(() => ({
+    requiredCredential: "orb",
+    closeAt: unixToLocal(Math.floor(Date.now() / 1000) + 7 * 86_400),
+    ticketExpiry: "",
+  }));
   const [persona, setPersona] = useState("");
   const [lorebook, setLorebook] = useState("");
   const { address, isConnected } = useAccount();
@@ -100,12 +116,18 @@ export default function CreatePage() {
   async function runPrepare(): Promise<PrepareCampaignResult> {
     if (flowRef.current.prepared) return flowRef.current.prepared;
     if (!safety.run || safety.run.status !== "passed") throw new Error("Pass the Bouncer Safety Report before minting.");
+    // The same rules the backend applies, checked before a portrait is generated or a transaction
+    // is signed: a mistyped date should cost nothing.
+    const invalid = settingsErrors(settings, Math.floor(Date.now() / 1000));
+    if (invalid.closeAt || invalid.ticketExpiry) throw new Error(invalid.closeAt ?? invalid.ticketExpiry!);
+
     const prep = await api.prepareCampaign({
       slug,
       persona,
       lorebook,
       ownerAddress: address!,
       safetyRunId: safety.run.id,
+      ...toSettingsPayload(settings),
     });
     updateFlow((current) => ({ ...current, prepared: prep, status: "done" }));
     return prep;
@@ -215,6 +237,8 @@ export default function CreatePage() {
         campaignAddress,
         campaignTx: flowRef.current.campaignTx!,
         safetyRunId: safety.run!.id,
+        ...toSettingsPayload(settings),
+        contractVersion: prep.factoryVersion ?? 1,
       });
       setResult(indexed);
       updateFlow((current) => ({ ...current, stage: "done", status: "done" }));
@@ -311,6 +335,12 @@ export default function CreatePage() {
             <Field label={create.wlSizeLabel} hint={create.wlSizeHelp}>
               <input className={inputCls} type="number" min={1} value={wlSize} onChange={(e) => setWlSize(Number(e.target.value))} />
             </Field>
+
+            <CampaignSettingsFields
+              value={settings}
+              onChange={setSettings}
+              now={openedAt}
+            />
 
             <section aria-labelledby="publication-heading">
               <h2 id="publication-heading" className="text-sm mb-1.5">Publication</h2>

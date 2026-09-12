@@ -62,13 +62,21 @@ async function callIdempotent<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/// The Door and ticket settings travel with both create calls; the backend applies the same rules
+/// again and is the authority on them.
+export type CampaignSettingsBody = {
+  requiredCredential?: "selfie" | "orb" | "device";
+  closeAt?: number | null;
+  ticketExpiry?: number | null;
+};
+
 export type PrepareCampaignBody = {
   slug: string;
   persona: string;
   lorebook: string;
   ownerAddress: string;
   safetyRunId: string;
-};
+} & CampaignSettingsBody;
 
 export type PrepareCampaignResult = {
   personaURI: string;
@@ -81,6 +89,8 @@ export type PrepareCampaignResult = {
   backendAddress: string;
   registryAddress: string;
   factoryAddress: string;
+  /// Which factory `factoryAddress` points at, so the campaign is indexed as what it actually is.
+  factoryVersion?: 1 | 2;
 };
 
 export type IndexCampaignBody = {
@@ -99,7 +109,8 @@ export type IndexCampaignBody = {
   campaignAddress: string;
   campaignTx: string;
   safetyRunId: string;
-};
+  contractVersion?: 1 | 2;
+} & CampaignSettingsBody;
 
 export type CreateCampaignResult = {
   slug: string;
