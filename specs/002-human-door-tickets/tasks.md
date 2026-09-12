@@ -162,8 +162,8 @@ Web app: `backend/src/`, `backend/test/`, `frontend/src/`, `frontend/test/`, `co
 - [x] T067 [P] Accessibility and responsive pass for Door, Brief, Receipt, Roster at 390×844 and 1280×800; append assertions to `frontend/test/ui-foundation.test.tsx`
 - [ ] T068 Deploy V2 contracts to 0G mainnet with `contracts/script/DeployV2.s.sol` (operator confirms; deployer key from existing `.env`), verify on Chainscan, set `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS`, `TICKET_GATE_ADDRESS` in operator env; record addresses in `README.md`
 - [ ] T069 Create one V2 demo campaign for Kenji on mainnet with a short close (for the expired state) and one with the demo window; keep Mei-chan on V1 to prove coexistence
-- [ ] T070 [P] Write `docs/feedback-world.md` (Selfie Check/AgentKit docs, portal navigation, sandbox states, what was confusing or broken) and `docs/ai-usage.md`
-- [ ] T071 [P] Add README continuity section: pre-existing capabilities vs in-window work with commit ranges, partner tracks (0G, World, The Graph), what each sees; update architecture diagram note
+- [x] T070 [P] Write `docs/feedback-world.md` (Selfie Check/AgentKit docs, portal navigation, sandbox states, what was confusing or broken) and `docs/ai-usage.md`
+- [x] T071 [P] Add README continuity section: pre-existing capabilities vs in-window work with commit ranges, partner tracks (0G, World, The Graph), what each sees; update architecture diagram note
 - [ ] T072 Record the demo video (2–4 min, ≥720p, target <3 min) following the design demo path; reference it in README
 - [ ] T073 Complete `verify.sh` phases `ui`, `release`, `live`; run `./verify.sh` fully green locally; `live` green against mainnet + Graph + sandbox
 - [ ] T074 Independent completion check via `loop/guardrails/verify.sh` on the build done-when (build-prompt reconcile writes it); record the verdict

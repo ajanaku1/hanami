@@ -72,6 +72,62 @@ The tournament rewards improving between rounds. Since the Group Stage:
 - **Privacy gate**: a private campaign's applicant feed (wallets + decisions) now requires an owner signature; aggregate counts stay public.
 - **Hardening**: the `tee_verified` flag is persisted per turn, a keepalive keeps the backend warm for judges, and the copy now matches the contract. The iNFT is a tradable ERC-721 whose reputation and history travel with it; the ERC-7857 sealed-key transfer path is a documented v1 limitation.
 
+## ETHOnline 2026 · what was built in the window
+
+Hanami existed before this event: an AI bouncer that interviews whitelist applicants inside a TEE on
+0G, mints each bouncer as an ERC-7857 iNFT, and exports a Merkle root for any EVM mint contract.
+This section separates that from the work done during ETHOnline 2026, by commit range, so a judge
+does not have to take either on trust.
+
+**In-window work: `2949916..3363ae5`** — the feature branch for
+[`specs/002-human-door-tickets`](specs/002-human-door-tickets). Everything before `2949916` is
+pre-existing.
+
+### Pre-existing, before the event
+
+| Capability | Where |
+|---|---|
+| ERC-7857 bouncer iNFT, campaign contract, Merkle export | `contracts/src/{BouncerRegistry,Campaign}.sol` — byte-for-byte unchanged, and asserted so by `./verify.sh contracts` |
+| TEE interview on 0G Compute, transcripts on 0G Storage, decisions on 0G Chain | `backend/src/{bouncer,og-compute,og-storage,og-chain}.ts` |
+| Bouncer Safety Report (eight adversarial scenarios) gating every mint | `backend/src/safety/` |
+| Verify-on-0G attestation recompute | `frontend/src/components/VerifyOn0G.tsx` |
+
+### Built during ETHOnline 2026
+
+| What | Partner technology | Where |
+|---|---|---|
+| **The Door** — a World proof-of-human before every interview, one person one attempt per campaign, with a credential fallback | World ID (Selfie Check / Orb / Device) via IDKit 4 and the v4 verify endpoint | `backend/src/door/`, `frontend/src/components/door/DoorPanel.tsx` |
+| **The agent Door and CLI** — an agent applies for a person through the same API, and the Roster says which agent | World AgentKit + AgentBook | `backend/src/door/agentkit.ts`, `agent/` |
+| **The ledger brief** — all-time marketplace and exchange history across seven subgraphs on one shared schema, given to the bouncer as evidence and never as a verdict | The Graph decentralized gateway, Messari standardized subgraphs | `backend/src/ledger/`, `frontend/src/components/door/BriefPanel.tsx` |
+| **Soulbound tickets** — an approval mints an expiring, owner-revocable ticket beside the existing decision record; a demo gate consumes it | 0G Chain (`CampaignV2`, `Ticket`, `TicketGate`) | `contracts/src/{CampaignV2,Ticket,TicketGate}.sol`, `backend/src/tickets/` |
+| **Receipt, Verify and Roster** — three identifiers, the attestation path, enclave-signer recovery, and an owner roster with revoke | 0G Compute Direct broker, 0G Chain | `frontend/src/components/{door/Receipt,VerifyOn0G,roster}.tsx` |
+
+### What each partner sees
+
+- **0G** — two new contracts and a demo consumer deployed beside the untouched V1 pair; the decision
+  turn can run through the Compute **Direct broker** so the on-chain attestation is the enclave's raw
+  signature, recovered in the browser; the brief travels with the transcript on 0G Storage.
+- **World** — the Door is load-bearing: no proof, no interview, for a browser applicant and an agent
+  alike. Feedback from building it is in [`docs/feedback-world.md`](docs/feedback-world.md), all of
+  it reproducible.
+- **The Graph** — one `Trade` template across five NFT marketplaces and one `Swap` template across
+  two exchanges, read in parallel under a 12-second budget, with each source named on the receipt and
+  a per-source failure reported rather than hidden.
+
+### Demo video
+
+[Demo video](#) — the walk is Gallery → Door → Brief → interview → Receipt → Verify → Roster →
+Revoke, with a human voiceover. (Link added at submission.)
+
+### Running the whole thing
+
+```bash
+./verify.sh            # every predicate; `live` needs mainnet, the Graph key, and a sandbox proof
+./verify.sh brief      # or any single phase: spec contracts door tickets brief ui agent release live
+```
+
+AI usage during the build, and inside the product, is set out in [`docs/ai-usage.md`](docs/ai-usage.md).
+
 ## Live demo
 
 - **App**: https://hanami-hazel.vercel.app
@@ -85,6 +141,19 @@ The tournament rewards improving between rounds. Since the Group Stage:
 | CampaignFactory | [`0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4`](https://chainscan.0g.ai/address/0xfe6b2417407595Ad4d1F8D4D8c95860881d539d4) |
 
 Both verified on `chainscan.0g.ai`. Each project's bouncer iNFT is minted directly to the project owner's wallet. Hanami never custodies the token.
+
+The ETHOnline 2026 contracts deploy **beside** these, additively. V1 campaigns keep running against
+the addresses above and are not migrated, redeployed, or touched.
+
+| Contract (V2) | Address |
+|---|---|
+| CampaignFactoryV2 (mints tickets on approval) | _pending deploy — `contracts/script/DeployV2.s.sol`_ |
+| Ticket (soulbound, expiring, owner-revocable) | _pending deploy — deployed by the factory's constructor_ |
+| TicketGate (demo consumer: requires a live ticket) | _pending deploy_ |
+
+Set as `CAMPAIGN_FACTORY_V2`, `TICKET_ADDRESS` and `TICKET_GATE_ADDRESS` in the operator environment
+(`backend/.env.example` documents all three). `./verify.sh live` reads the addresses out of this
+table and checks each one contains code on chain, so it stays red until they are real.
 
 ### Live certified bouncers
 

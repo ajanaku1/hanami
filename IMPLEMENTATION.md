@@ -94,3 +94,12 @@ landed. So `live_ticket_count` on the campaign list counts tickets issued by a V
 have not reached its expiry, and a ticket revoked on chain is still counted there. The Roster reads
 every ticket from the chain and is the authority on any single one. Making the gallery authoritative
 would mean a chain read per campaign on a public, uncached page.
+
+## 2026-09-12 — the V2 address table is in the README before the addresses exist (T071, T068)
+
+The `release` predicate asks that the V2 contracts be named in the README and their keys in the env
+example; the `live` predicate reads the addresses back out of that same table and checks each one
+contains code on 0G mainnet. The table is therefore written now, with each address marked *pending
+deploy* rather than filled with a placeholder that would read as real. `release` passes because the
+contracts and their env keys are recorded; `live` stays red, correctly, until the operator runs
+`contracts/script/DeployV2.s.sol` and pastes the three addresses in (T068).
