@@ -24,6 +24,7 @@ import { SafetyRepository } from "./safety/repository.js";
 import { SafetyRunner, type SafetyInference } from "./safety/runner.js";
 import { createSafetyRoutes } from "./safety/routes.js";
 import { createDoorGuard, createDoorRoutes } from "./door/routes.js";
+import { createAgentBookLookup, createAgentDoor, createHeaderVerifier } from "./door/agentkit.js";
 import { createBriefRoutes, ensureBrief, type BriefDeps } from "./ledger/routes.js";
 import { readLedger } from "./ledger/graph-client.js";
 import type { LedgerBrief } from "./ledger/brief.js";
