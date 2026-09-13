@@ -42,11 +42,10 @@ build contract kept in the repository: `Goal.md`, `prompt.md`, `plan.md`, and an
   and fixed while wiring an unrelated feature.
 - **Secrets, keys and deployed addresses were never touched by the assistant.** They are operator
   steps, listed in `specs/002-human-door-tickets/quickstart.md`.
-- **The demo video's narration is synthesised** (Microsoft Edge TTS, `en-US-AndrewMultilingualNeural`),
-  a deliberate change from this project's original "human voiceover, no TTS" rule, made on
-  2026-09-13 under deadline. The script is written by hand; only the voice is synthetic. Everything
-  the video *shows* — every address, hash, figure, terminal line and source list — is copied from a
-  verified artifact in `video/public/assets/`, captured live against 0G mainnet and The Graph.
+- **The demo video is a human voiceover.** No synthetic narration. The script is written by hand,
+  and everything the video *shows* — every address, hash, figure, terminal line and source list — is
+  copied from a verified artifact in `video/public/assets/`, captured live against 0G mainnet and
+  The Graph.
 
 Model use during the build was Claude Opus and Sonnet through Claude Code, with a fresh-context agent
 verifying the project's done-when at the end rather than the agent that wrote the code.
