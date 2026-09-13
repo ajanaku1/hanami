@@ -339,3 +339,32 @@ mean -21.8 dB, pause floor down from about -47 dB to -60 dB in the finished vide
 
 Unverifiable from here: whether the gate clips a soft word onset. The metrics bound it to 0.8s
 across 143s, but only listening settles it.
+
+## 2026-09-13 — the noise was in the gaps, and two fixes made it worse before one made it better
+
+Three attempts, each wrong in an instructive way.
+
+**First**, `afftdn` with `nf` set to the measured noise floor. `nf` is the threshold for what counts
+as noise, not a description of it, so almost nothing qualified: 0.4 dB removed from under the voice.
+
+**Second**, `afwtdn` at sigma 0.02-0.03, which scored beautifully — 16 to 21 dB of "hiss" gone. It
+was gutting the voice. Measuring *peaks* in 3-9 kHz rather than RMS showed sibilants falling by the
+same 16-21 dB, with the crest factor flat across every setting: a low-pass filter, not a denoiser.
+Shipping it would have left the narration muffled and lisping.
+
+**The diagnosis** came from comparing pause against speech per octave band. Every band held 22-31 dB
+of margin, so there was no noise pocket to remove; the recording was clean. What a listener actually
+hears is room tone in the gaps between sentences — and the second fix had made that worse, because
+removing the gate on the strength of a 3.4 dB denoise left the pauses louder than the cut before it.
+
+**What shipped**: `highpass=85, arnndn (rnnoise model), agate`. The RNN is trained to separate speech
+from noise instead of attenuating a band, so sibilant loss is 0.3 dB where `afftdn` cost 1.6 dB, and
+the gate silences the gaps the denoiser cannot reach. Pause floor -78 dB in the finished video,
+against -64 dB in the cut before it; peak -2.8 dB, mean -21.4 dB.
+
+The model is a data file at `video/tools/sh.rnnn`, not a package: nothing was added to any dependency
+list, and `video/` is gitignored.
+
+**The lesson worth keeping**: the metric chosen decides the answer. Pause floor flattered a gate that
+did nothing for speech; RMS in a band flattered a filter that was destroying consonants. Peaks and
+per-band margins were the measurements that told the truth.
