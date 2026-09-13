@@ -287,3 +287,18 @@ both now live in the blueprint so the pair cannot drift apart.
 
 `quickstart.md` referenced `npm run og:ledger:status`, a script that does not exist. Corrected to
 `npx tsx scripts/direct-broker-setup.ts`, which is the one that does.
+
+## 2026-09-13 — the demo video shows the real interface after all (T072)
+
+An earlier note here justified a UI-free video on the grounds that Playwright was not installed and
+`CLAUDE.md` forbids adding dependencies. Both facts are true and the conclusion drawn from them was
+wrong: Chrome was installed the whole time and screenshots a URL headlessly with one flag and no
+install. The gallery and the campaign page were always reachable; only the interview and receipt
+screens ever needed a wallet and a Door proof.
+
+Both pages are now captured at 2x from the deployed app into `video/public/assets/`, framed in
+plain browser chrome, and cut into two beats. The hook states the problem in numbers and then hands
+over to the real gallery, where the V2 campaign shows as OPEN beside the private ones. The Door beat
+shows the campaign page — portrait, "criteria stay sealed", "TEE on every reply", safety certified —
+and crossfades to the terminal taking a 403, so the product is seen before the proof that it
+refuses.
