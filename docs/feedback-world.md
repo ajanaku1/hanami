@@ -85,7 +85,39 @@ would send a 402 to every browser applicant, so we gate the challenge on a clien
 Every server offering both a human and an agent path has to solve this, and the obvious solutions
 (challenge everyone; sniff the user agent) are both wrong.
 
-## 5. Sandbox states are hard to exercise deliberately
+## 5. An action's verification level silently overrides what the app asks for
+
+**What we expected**: the app decides how strict a proof to request. IDKit takes a preset —
+`deviceLegacy`, `selfieCheckLegacy`, `orbLegacy` — and we built a whole credential ladder on that
+assumption: a campaign names a floor, the panel picks the matching preset, the server checks what
+came back is at least as strong.
+
+**What happens**: the action's own verification level in the Developer Portal wins. With the action
+set to Orb, an app requesting `deviceLegacy` still gets "this app requires a unique identifier, find
+an Orb" in World App. The request is not refused with an explanation; the user is simply sent to
+find hardware that, in much of the world, does not exist nearby.
+
+**Why it cost us the demo**: our campaign was configured for `device` precisely so that anyone with
+World App could pass. Every layer on our side agreed — the API returned `device`, the panel selected
+`deviceLegacy` — and it made no difference. The setting that actually governed the outcome was in a
+different system, and nothing in the failure pointed at it.
+
+**Suggestions**, in order of how much they would have helped:
+
+1. Reject the request at the SDK or verify boundary with a real error — "action requires orb,
+   preset requested device" — instead of showing the end user an Orb prompt. A developer reading
+   their own logs would find this in a minute.
+2. Surface the action's verification level in the IDKit request context the RP signs, so an app can
+   read what it is actually allowed to ask for and adapt.
+3. Default a newly created action to the weakest level rather than the strongest. Orb-by-default
+   means the common case for a hackathon or a pilot is a dead end that only reveals itself on a
+   phone, late.
+
+**Worth saying plainly**: Orb is the right primitive for uniqueness and we are not asking for it to
+be weaker. The problem is that the strictness is set in one place and requested in another, and only
+one of them is visible to the code.
+
+## 6. Sandbox states are hard to exercise deliberately
 
 Testing the Door's refusals — an already-used nullifier, a credential weaker than required, the
 verifier being unreachable — meant simulating them at our own boundary, because the sandbox will
