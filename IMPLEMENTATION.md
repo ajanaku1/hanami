@@ -236,3 +236,34 @@ only deploys a factory when that is unset. Redeploying it on a later run would o
 the first factory created, since a campaign can only mint on the Ticket its own factory owns.
 Confirmed by dry run: with the env set, the factory and ticket resolve to the deployed pair and only
 the gate is new.
+
+## 2026-09-13 — the demo video, and the two rules it changed (T072)
+
+**Built**: `video/`, a Remotion project rendering `out/demo.mp4` (1920×1080, 2:02) and
+`out/social.mp4` (1080×1920, 11s), narrated with Microsoft Edge TTS.
+
+**Two deliberate departures, both recorded rather than quietly taken.**
+
+*Narration is synthesised.* `prompt.md` and the release checklist said "human voiceover; no TTS".
+The user overrode that on 2026-09-13 under deadline. `docs/ai-usage.md`, `verify.sh` and
+`prompt.md` were all updated to say so, because `docs/ai-usage.md` had asserted the opposite and a
+submitted document must not contradict the artifact it describes. The script is written by hand and
+passed through the `humanizer` skill; only the voice is machine-made.
+
+*The Door is not staged.* The video does not show an applicant passing the Door, because passing it
+needs a real World proof from a phone and nobody was available to give one. Faking it was refused:
+the World prize case rests on the Door being load-bearing, and a video showing an applicant walking
+through a disabled Door is fabricated evidence handed to judges. The Door beat instead shows the
+deployed backend answering `403 door required` to an unverified wallet — a stronger claim, and true.
+
+**Every value on screen is a captured artifact**, stored in `video/public/assets/`: the live 403,
+the `cast call` reads showing `factory.ticket()` and `ticket.factory()` pointing at each other with
+`isMinter` true for the demo campaign, and a ledger read returning 150 swaps across five answering
+sources. The interview beat is drawn as an explanation of the enclave boundary and never dressed as
+a product screenshot, per the skill's evidence-safety rule.
+
+**Three defects were found by looking at rendered frames rather than trusting the code**: the brief
+promised a holding figure the narration mentions but did not display it (the live value was null, so
+it now renders as an em dash labelled "no matched buy→sell pairs"); the Receipt scene sat half empty
+for three seconds waiting for its terminal; and both the Brief grid and the Evidence list reflowed
+as staggered children entered, drifting the headings upward.

@@ -255,7 +255,9 @@ manual release checks:
   [ ] Verify-on-0G recovers the enclave signer for a direct-path decision and labels router-path decisions.
   [ ] TicketGate on mainnet accepts a live ticket holder and refuses the revoked wallet (Chainscan txs recorded in docs/ethonline-evidence.md).
   [ ] The agent CLI applies end to end against the live campaign from a clean machine following agent/README.md.
-  [ ] Demo video is 2-4 minutes, 720p or better, follows the design.md demo path, human voiceover.
+  [ ] Demo video is 2-4 minutes, 720p or better, follows the design.md demo path; narration is
+      synthesised (Edge TTS) and docs/ai-usage.md says so — the original human-voiceover rule was
+      changed deliberately on 2026-09-13, not quietly dropped.
   [ ] README continuity section separates pre-existing work from in-window work by commit range; feedback document is reproducible.
   [ ] The independent checker exited 0 with network access and no degraded-access findings.
 MANUAL
