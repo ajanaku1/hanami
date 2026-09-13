@@ -302,3 +302,27 @@ over to the real gallery, where the V2 campaign shows as OPEN beside the private
 shows the campaign page — portrait, "criteria stay sealed", "TEE on every reply", safety certified —
 and crossfades to the terminal taking a 403, so the product is seen before the proof that it
 refuses.
+
+## 2026-09-13 — cleaning the voiceover, and a clipping bug it exposed
+
+The recording's noise floor measured -60 dB RMS against speech at -36 — about 24 dB of headroom, a
+sound recording. The hiss was only audible because normalisation lifted the room along with the
+voice.
+
+Five chains were scored on SNR gained against low-level content lost, rather than picked by ear:
+highpass alone 27.0 dB, plus FFT denoise 27.8, plus a gentle expander 29.4, plus a 4:1 gate 42.3.
+The gate wins by 13 dB for 0.8s more attenuated material than the expander, and most of the 6s it
+removes is rumble and breath the highpass took. The gentler-looking gate — lower threshold, longer
+release — scored *worse* on both counts, because a long release holds the gate open across exactly
+the pauses being cleaned.
+
+Final chain: `highpass=85, afftdn=nr=24:nf=-60:tn=1, agate=threshold=0.0025:ratio=4:attack=8:
+release=180:knee=6`, two-pass loudnorm, then an exact measured gain.
+
+**A clipping bug shipped in the previous cut.** It peaked at 0.0 dB with +2.7 dB of overshoot on
+decode; `alimiter` had not held it. The peak is now measured on the rendered WAV and a computed gain
+applied to land at -3 dB, which is deterministic where a limiter target was not. Final: peak -3.3 dB,
+mean -21.8 dB, pause floor down from about -47 dB to -60 dB in the finished video.
+
+Unverifiable from here: whether the gate clips a soft word onset. The metrics bound it to 0.8s
+across 143s, but only listening settles it.
