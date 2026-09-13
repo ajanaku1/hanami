@@ -64,3 +64,9 @@ plan-wave3.md
 # Encrypted wallet vault backup. Never belongs in the repo — the salt and ciphertext together
 # make an offline brute-force possible, and it has nothing to do with this project.
 docs/chit-fleet-backup.json
+
+# Raw voiceover takes. Source media, not source code — the rendered video lives in video/out,
+# which is already ignored.
+*.m4a
+*.wav
+New Recording*.m4a
