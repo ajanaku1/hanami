@@ -316,8 +316,21 @@ removes is rumble and breath the highpass took. The gentler-looking gate — low
 release — scored *worse* on both counts, because a long release holds the gate open across exactly
 the pauses being cleaned.
 
-Final chain: `highpass=85, afftdn=nr=24:nf=-60:tn=1, agate=threshold=0.0025:ratio=4:attack=8:
-release=180:knee=6`, two-pass loudnorm, then an exact measured gain.
+That first chain barely worked, and the metric used to choose it was the wrong one. Pause floor
+measures the gaps; the hiss a listener actually notices sits *under the voice*, where a gate is open
+by definition. Measured in the 2-8 kHz band during speech, `nf=-60` removed **0.4 dB** of hiss.
+
+The error was the `nf` parameter. It is the threshold for what counts as noise, not a description of
+the noise floor, so setting it at the measured floor (-60) meant almost nothing qualified. At
+`nf=-40` the same band drops 3.4 dB during speech and the pause floor falls to -130 dB, with the
+voice body (150-1200 Hz) losing 0.1 dB. Pushing to `nf=-30` takes 10.6 dB out of 2-8 kHz, which is
+sibilance rather than hiss, so it was rejected.
+
+With the hiss actually gone the gate earned nothing, so it was removed along with its risk of
+clipping soft word onsets.
+
+Final chain: `highpass=85, afftdn=nr=30:nf=-40`, two-pass loudnorm, then an exact measured gain to
+land the peak at -2.5 dB.
 
 **A clipping bug shipped in the previous cut.** It peaked at 0.0 dB with +2.7 dB of overshoot on
 decode; `alimiter` had not held it. The peak is now measured on the rendered WAV and a computed gain
