@@ -267,3 +267,23 @@ promised a holding figure the narration mentions but did not display it (the liv
 it now renders as an em dash labelled "no matched buy→sell pairs"); the Receipt scene sat half empty
 for three seconds waiting for its terminal; and both the Brief grid and the Evidence list reflowed
 as staggered children entered, drifting the headings upward.
+
+## 2026-09-13 — the enclave-signed path is on (T058)
+
+The 0G Compute ledger for the operator wallet is created and funded: **3.0 OG, 3.0 available**,
+read back from the broker rather than inferred from the wallet debit. The provider is
+`0x4870CbC4D07d6Ac2EE5aA865588e5985FE77a4E9`, serving `0GM-1.0-35B-A3B` — the same model the Router
+path already uses, with its TEE signer acknowledged on chain, so switching paths changes the trust
+base and nothing else.
+
+**3 OG is not a guess.** An earlier note in this file called the README's figure an overestimate and
+suggested 0.05 would do. That was wrong: the SDK refuses outright — *"Minimum balance to create a
+ledger is 3 0G"* — and a 0.4 OG attempt failed before spending anything.
+
+**The switch had to move in `render.yaml`, not the dashboard.** `OG_DIRECT_ENABLED` was declared
+there with a literal value, and Render treats blueprint values as read-only, so the dashboard would
+not accept an override. `OG_DIRECT_PROVIDER` was `sync: false` and could have been set either way;
+both now live in the blueprint so the pair cannot drift apart.
+
+`quickstart.md` referenced `npm run og:ledger:status`, a script that does not exist. Corrected to
+`npx tsx scripts/direct-broker-setup.ts`, which is the one that does.

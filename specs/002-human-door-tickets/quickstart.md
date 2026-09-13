@@ -95,7 +95,7 @@ ledger is funded; otherwise every path falls back to the Router and says so on t
 
 ```bash
 cd backend
-npm run og:ledger:status                        # shows the Compute ledger balance
+npx tsx scripts/direct-broker-setup.ts          # ledger balance + the TEE providers on offer
 # fund 3 OG to that ledger from the deployer wallet, then set in backend/.env (operator, never the agent):
 #   OG_DIRECT_ENABLED=true
 #   OG_DIRECT_PROVIDER=0x…      # a provider with a registered teeSignerAddress

@@ -29,13 +29,17 @@ services:
       - key: OG_ROUTER_IMAGE_MODEL
         value: z-image
       # Direct-broker path for the decision turn — TEE-signed inference whose signature recovers to
-      # the provider's on-chain teeSignerAddress (Router removed from the trust base). Off by default;
-      # set OG_DIRECT_ENABLED=true only with a funded 0G Compute ledger for DEPLOYER_PRIVATE_KEY and a
-      # provider address in OG_DIRECT_PROVIDER. If unset or unfunded, decisions fall back to the Router.
+      # the provider's on-chain teeSignerAddress (Router removed from the trust base). On since
+      # 2026-09-13: the Compute ledger for DEPLOYER_PRIVATE_KEY is funded with the SDK's 3 OG minimum.
+      # A blueprint value cannot be overridden from the Render dashboard, so this is the switch —
+      # flip it here, not there. Unfunded or unreachable, decisions fall back to the Router and the
+      # receipt says so.
       - key: OG_DIRECT_ENABLED
-        value: "false"
+        value: "true"
+      # 0x4870CbC4D07d6Ac2EE5aA865588e5985FE77a4E9 serves 0GM-1.0-35B-A3B, the same model the Router
+      # path uses, with its TEE signer already acknowledged on chain.
       - key: OG_DIRECT_PROVIDER
-        sync: false
+        value: "0x4870CbC4D07d6Ac2EE5aA865588e5985FE77a4E9"
       - key: OG_RPC_URL
         value: https://evmrpc.0g.ai
       - key: OG_INDEXER_RPC
